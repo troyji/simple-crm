@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Opportunity, Stage } from "@/types";
+import type { Opportunity, Stage, CustomField } from "@/types";
 import { fetchOpportunities } from "@/api/opportunities";
 import { fetchStages } from "@/api/stages";
+import { fetchCustomFields } from "@/api/custom-fields";
 import { QUERY_KEYS } from "@/api/query-keys";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Collapsible } from "@/components/ui/collapsible";
 import { StageFilter } from "./stage-filter";
 
@@ -41,6 +43,25 @@ function getBucketLabel(key: BucketKey, year: number, month: number): string {
     return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function groupOpps(opps: Opportunity[], fieldName: string, fieldEntity: string | undefined): Map<string, Opportunity[]> {
+    const groups = new Map<string, Opportunity[]>();
+    for (const opp of opps) {
+        const raw = fieldEntity === "lead"
+            ? opp.lead.customFields?.[fieldName]
+            : opp.customFields?.[fieldName];
+        const key = raw !== undefined && raw !== null && raw !== "" ? String(raw) : "(No value)";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(opp);
+    }
+    return new Map(
+        [...groups.entries()].sort(([a], [b]) => {
+            if (a === "(No value)") return 1;
+            if (b === "(No value)") return -1;
+            return a.localeCompare(b);
+        })
+    );
+}
+
 function sortOpps(opps: Opportunity[]): Opportunity[] {
     return [...opps].sort((a, b) => {
         if (!a.expectedCloseDate && !b.expectedCloseDate) return 0;
@@ -59,7 +80,12 @@ export function Forecast() {
         queryKey: QUERY_KEYS.stages,
         queryFn: fetchStages,
     });
+    const { data: customFields = [], isPending: fieldsLoading } = useQuery<CustomField[]>({
+        queryKey: QUERY_KEYS.customFields,
+        queryFn: fetchCustomFields,
+    });
 
+    const [groupByField, setGroupByField] = useState<string>("");
     const [filtersInitialized, setFiltersInitialized] = useState(false);
     const [appliedFilter, setAppliedFilter] = useState<Set<number>>(new Set());
     const [pendingFilter, setPendingFilter] = useState<Set<number>>(new Set());
@@ -146,7 +172,7 @@ export function Forecast() {
         return result;
     }, [opportunities, appliedFilter]);
 
-    if (oppsLoading || stagesLoading) return <p>Loading forecast...</p>;
+    if (oppsLoading || stagesLoading || fieldsLoading) return <p>Loading forecast...</p>;
 
     const today = new Date();
     const year = today.getFullYear();
@@ -168,6 +194,19 @@ export function Forecast() {
                     />
                     <Button variant="outline" size="sm" onClick={expandAll}>Expand All</Button>
                     <Button variant="outline" size="sm" onClick={collapseAll}>Collapse All</Button>
+                    <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-600 whitespace-nowrap">Group by</span>
+                        <Select
+                            value={groupByField}
+                            onChange={e => setGroupByField(e.target.value)}
+                            className="text-sm py-1 w-36"
+                        >
+                            <option value="">None</option>
+                            {customFields.map(f => (
+                                <option key={f.id} value={f.name}>{f.label}</option>
+                            ))}
+                        </Select>
+                    </div>
                 </div>
             </div>
 
@@ -189,28 +228,59 @@ export function Forecast() {
                     >
                         {opps.length === 0 ? (
                             <p className="px-4 py-3 text-sm text-gray-400 italic">No opportunities</p>
-                        ) : (
-                            <table className="table-auto w-full border-collapse text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 text-left">
-                                        <th className="border px-3 py-2">Lead Name</th>
-                                        <th className="border px-3 py-2">Stage</th>
-                                        <th className="border px-3 py-2 text-right">Value</th>
-                                        <th className="border px-3 py-2 text-right">Expected Close</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {opps.map(opp => (
-                                        <tr key={opp.id} className="hover:bg-gray-50">
-                                            <td className="border px-3 py-2">{opp.lead.firstName} {opp.lead.lastName}</td>
-                                            <td className="border px-3 py-2">{opp.stage.name}</td>
-                                            <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value)}</td>
-                                            <td className="border px-3 py-2 text-right font-mono">{formatDate(opp.expectedCloseDate)}</td>
+                        ) : (() => {
+                            const selectedField = groupByField ? customFields.find(f => f.name === groupByField) : undefined;
+                            const groups = selectedField
+                                ? groupOpps(opps, groupByField, selectedField.entity)
+                                : null;
+                            return (
+                                <table className="table-auto w-full border-collapse text-sm">
+                                    <thead>
+                                        <tr className="bg-gray-50 text-left">
+                                            <th className="border px-3 py-2">Lead Name</th>
+                                            <th className="border px-3 py-2">Stage</th>
+                                            <th className="border px-3 py-2 text-right">Value</th>
+                                            <th className="border px-3 py-2 text-right">Expected Close</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
+                                    </thead>
+                                    <tbody>
+                                        {selectedField ? (
+                                            [...groups!.entries()].map(([groupLabel, groupedOpps]) => (
+                                                <>
+                                                    <tr key={`hdr-${groupLabel}`} className="bg-gray-100">
+                                                        <td colSpan={4} className="border px-3 py-1.5 text-sm font-medium text-gray-700">
+                                                            {selectedField.label}: {groupLabel}
+                                                            <span className="ml-3 font-normal text-gray-500">
+                                                                {groupedOpps.length} {groupedOpps.length === 1 ? "opportunity" : "opportunities"}
+                                                                {" · "}
+                                                                {formatCurrency(calcExpectedValue(groupedOpps))} expected
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                    {groupedOpps.map(opp => (
+                                                        <tr key={opp.id} className="hover:bg-gray-50">
+                                                            <td className="border px-3 py-2">{opp.lead.firstName} {opp.lead.lastName}</td>
+                                                            <td className="border px-3 py-2">{opp.stage.name}</td>
+                                                            <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value)}</td>
+                                                            <td className="border px-3 py-2 text-right font-mono">{formatDate(opp.expectedCloseDate)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </>
+                                            ))
+                                        ) : (
+                                            opps.map(opp => (
+                                                <tr key={opp.id} className="hover:bg-gray-50">
+                                                    <td className="border px-3 py-2">{opp.lead.firstName} {opp.lead.lastName}</td>
+                                                    <td className="border px-3 py-2">{opp.stage.name}</td>
+                                                    <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value)}</td>
+                                                    <td className="border px-3 py-2 text-right font-mono">{formatDate(opp.expectedCloseDate)}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            );
+                        })()}
                     </Collapsible>
                 );
             })}
