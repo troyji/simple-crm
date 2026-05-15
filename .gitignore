@@ -25,3 +25,4 @@ dump.rdb
 coverage/
 .nyc_output/
 .claude/settings.local.json
+bash.exe.stackdump
