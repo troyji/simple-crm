@@ -29,6 +29,7 @@ export interface Opportunity {
     stage: Stage;
     value: number;
     name?: string;
+    expectedCloseDate?: string | null;
     customFields?: Record<string, string | number>;
 }
 

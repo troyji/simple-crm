@@ -31,6 +31,11 @@ export function OpportunityCard({ opp, onEdit, onDelete, isDeleting }: Props) {
                 <span className="text-sm text-gray-500 ml-2">
                     Expected: {formatCurrency(opp.value * opp.stage.conversionLikelihood)}
                 </span>
+                {opp.expectedCloseDate && (
+                    <span className="text-sm text-gray-500 ml-2">
+                        Closes: {opp.expectedCloseDate}
+                    </span>
+                )}
                 {filledFields.map(f => (
                     <span key={f.name} className="text-sm text-gray-500 ml-2">
                         <span className="font-medium">{f.label}:</span> {opp.customFields![f.name]}

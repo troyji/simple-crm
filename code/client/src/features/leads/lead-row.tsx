@@ -182,6 +182,7 @@ export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
                             stageId: String(editingOpp.stage.id),
                             value: String(editingOpp.value),
                             name: editingOpp.name ?? "",
+                            expectedCloseDate: editingOpp.expectedCloseDate ?? "",
                             customFieldValues: initCustomFieldState(oppFields, editingOpp.customFields),
                         }}
                         onSubmit={(values: OpportunitySubmitValues) =>

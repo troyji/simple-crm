@@ -14,6 +14,7 @@ export interface OpportunitySubmitValues {
     stageId: number;
     value: number;
     name?: string;
+    expectedCloseDate?: string | null;
     customFields: Record<string, string | number>;
 }
 
@@ -23,6 +24,7 @@ interface Props {
         stageId: string;
         value: string;
         name: string;
+        expectedCloseDate: string;
         customFieldValues: Record<string, string>;
     };
     onSubmit: (values: OpportunitySubmitValues) => void;
@@ -35,6 +37,7 @@ export function OpportunityForm({ submitLabel, initialValues, onSubmit, isPendin
     const [stageId, setStageId] = useState(initialValues?.stageId ?? "");
     const [value, setValue] = useState(initialValues?.value ?? "");
     const [name, setName] = useState(initialValues?.name ?? "");
+    const [expectedCloseDate, setExpectedCloseDate] = useState(initialValues?.expectedCloseDate ?? "");
     const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(
         initialValues?.customFieldValues ?? {}
     );
@@ -58,6 +61,7 @@ export function OpportunityForm({ submitLabel, initialValues, onSubmit, isPendin
                     stageId: Number(stageId),
                     value: Number(value),
                     name: name || undefined,
+                    expectedCloseDate: expectedCloseDate || null,
                     customFields: coerceCustomFields(oppFields, customFieldValues),
                 });
             }}
@@ -78,6 +82,10 @@ export function OpportunityForm({ submitLabel, initialValues, onSubmit, isPendin
             <div>
                 <Label>Name (optional)</Label>
                 <Input value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div>
+                <Label>Expected Close Date (optional)</Label>
+                <Input type="date" value={expectedCloseDate} onChange={e => setExpectedCloseDate(e.target.value)} />
             </div>
             <CustomFieldInputs fields={oppFields} values={customFieldValues} onChange={setCustomFieldValues} />
             <div className="flex justify-end gap-2 pt-2">

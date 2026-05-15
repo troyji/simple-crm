@@ -6,6 +6,7 @@ export interface OpportunityInput {
     stageId: number;
     value: number;
     name?: string;
+    expectedCloseDate?: string | null;
     customFields?: Record<string, string | number>;
 }
 
@@ -13,6 +14,7 @@ export interface OpportunityUpdateInput {
     stageId?: number;
     value?: number;
     name?: string;
+    expectedCloseDate?: string | null;
     customFields?: Record<string, string | number>;
 }
 

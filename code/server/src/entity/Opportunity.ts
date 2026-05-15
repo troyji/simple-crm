@@ -19,6 +19,9 @@ export class Opportunity {
     @Column({ nullable: true })
     name: string;
 
+    @Column({ nullable: true })
+    expectedCloseDate: string | null = null;
+
     @Column("simple-json", { nullable: true })
     customFields: Record<string, string | number> = {};
 }

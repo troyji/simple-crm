@@ -10,6 +10,7 @@ export interface CreateOpportunityInput {
     stageId: number;
     value: number;
     name?: string;
+    expectedCloseDate?: string | null;
     customFields?: Record<string, string | number>;
 }
 
@@ -17,6 +18,7 @@ export interface UpdateOpportunityInput {
     stageId?: number;
     value?: number;
     name?: string;
+    expectedCloseDate?: string | null;
     customFields?: Record<string, string | number>;
 }
 
@@ -46,6 +48,7 @@ class OpportunitiesService {
             stage,
             value: input.value,
             name: input.name,
+            expectedCloseDate: input.expectedCloseDate ?? null,
             customFields: input.customFields ?? {},
         });
         return this.repo.save(opp);
@@ -68,6 +71,7 @@ class OpportunitiesService {
             opp.value = input.value;
         }
         if (input.name !== undefined) opp.name = input.name;
+        if (input.expectedCloseDate !== undefined) opp.expectedCloseDate = input.expectedCloseDate || null;
         if (input.customFields !== undefined) opp.customFields = input.customFields;
 
         return this.repo.save(opp);
