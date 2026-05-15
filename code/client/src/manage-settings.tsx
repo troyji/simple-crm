@@ -1,30 +1,36 @@
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppSetting } from "./types";
+import { fetchSettings, saveSetting } from "./api/settings";
+import { QUERY_KEYS } from "./api/query-keys";
 
 export const ManageSettings: React.FC = () => {
-    const [settings, setSettings] = useState<AppSetting[]>([]);
+    const queryClient = useQueryClient();
     const [edits, setEdits] = useState<Record<string, string>>({});
 
-    useEffect(() => {
-        fetchSettings();
-    }, []);
+    const { data: settings = [] } = useQuery<AppSetting[]>({
+        queryKey: QUERY_KEYS.settings,
+        queryFn: fetchSettings,
+    });
 
-    const fetchSettings = async () => {
-        const result = await axios.get("/api/settings");
-        setSettings(result.data);
-    };
+    const saveMutation = useMutation({
+        mutationFn: saveSetting,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stages });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pipeline });
+        },
+    });
 
-    const saveSetting = async (key: string) => {
+    const handleSave = (key: string) => {
         const value = edits[key];
         if (value === undefined) return;
-        await axios.put(`/api/settings/${key}`, { value });
+        saveMutation.mutate({ key, value });
         setEdits(prev => {
             const next = { ...prev };
             delete next[key];
             return next;
         });
-        fetchSettings();
     };
 
     return (
@@ -48,8 +54,8 @@ export const ManageSettings: React.FC = () => {
                                         className="border rounded px-2 py-1 font-mono text-sm w-32"
                                     />
                                     <button
-                                        onClick={() => saveSetting(s.key)}
-                                        disabled={!dirty}
+                                        onClick={() => handleSave(s.key)}
+                                        disabled={!dirty || saveMutation.isPending}
                                         className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-300 text-sm"
                                     >
                                         Save

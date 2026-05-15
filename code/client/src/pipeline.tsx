@@ -1,23 +1,12 @@
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { PipelineReport } from "./types";
+import { fetchPipeline } from "./api/pipeline";
+import { QUERY_KEYS } from "./api/query-keys";
 
 export const Pipeline: React.FC = () => {
-    const [report, setReport] = useState<PipelineReport | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { data: report, isPending } = useQuery<PipelineReport>({ queryKey: QUERY_KEYS.pipeline, queryFn: fetchPipeline });
 
-    useEffect(() => {
-        fetchPipeline();
-    }, []);
-
-    const fetchPipeline = async () => {
-        setLoading(true);
-        const result = await axios.get("/api/pipeline");
-        setReport(result.data);
-        setLoading(false);
-    };
-
-    if (loading) return <p>Loading pipeline...</p>;
+    if (isPending) return <p>Loading pipeline...</p>;
     if (!report) return <p>No pipeline data</p>;
 
     const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);

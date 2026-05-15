@@ -1,9 +1,11 @@
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Stage } from "./types";
+import { fetchStages, createStage, updateStage, deleteStage } from "./api/stages";
+import { QUERY_KEYS } from "./api/query-keys";
 
 export const ManageStages: React.FC = () => {
-    const [stages, setStages] = useState<Stage[]>([]);
+    const queryClient = useQueryClient();
     const [newName, setNewName] = useState("");
     const [newStatus, setNewStatus] = useState<"pending" | "won" | "lost">("pending");
     const [newLikelihood, setNewLikelihood] = useState("0.5");
@@ -12,61 +14,43 @@ export const ManageStages: React.FC = () => {
     const [editStatus, setEditStatus] = useState<"pending" | "won" | "lost">("pending");
     const [editLikelihood, setEditLikelihood] = useState("0.5");
 
-    useEffect(() => {
-        fetchStages();
-    }, []);
+    const { data: stages = [] } = useQuery<Stage[]>({
+        queryKey: QUERY_KEYS.stages,
+        queryFn: fetchStages,
+    });
 
-    const fetchStages = async () => {
-        const result = await axios.get("/api/stages");
-        setStages(result.data);
-    };
-
-    const addStage = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newName) return;
-
-        try {
-            await axios.post("/api/stages", {
-                name: newName,
-                status: newStatus,
-                conversionLikelihood: parseFloat(newLikelihood),
-            });
+    const addMutation = useMutation({
+        mutationFn: createStage,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stages });
             setNewName("");
             setNewStatus("pending");
             setNewLikelihood("0.5");
-            fetchStages();
-        } catch (error) {
-            alert("Failed to add stage");
-        }
-    };
+        },
+        onError: () => alert("Failed to add stage"),
+    });
+
+    const editMutation = useMutation({
+        mutationFn: updateStage,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stages });
+            setEditingId(null);
+        },
+        onError: () => alert("Failed to update stage"),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: deleteStage,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stages });
+        },
+    });
 
     const startEdit = (stage: Stage) => {
         setEditingId(stage.id);
         setEditName(stage.name);
         setEditStatus(stage.status);
         setEditLikelihood(stage.conversionLikelihood.toString());
-    };
-
-    const saveEdit = async () => {
-        if (!editingId) return;
-        try {
-            await axios.put(`/api/stages/${editingId}`, {
-                name: editName,
-                status: editStatus,
-                conversionLikelihood: parseFloat(editLikelihood),
-            });
-            setEditingId(null);
-            fetchStages();
-        } catch (error) {
-            alert("Failed to update stage");
-        }
-    };
-
-    const deleteStage = async (id: number) => {
-        if (confirm("Delete this stage?")) {
-            await axios.delete(`/api/stages/${id}`);
-            fetchStages();
-        }
     };
 
     return (
@@ -88,10 +72,14 @@ export const ManageStages: React.FC = () => {
                                             onChange={e => setEditName(e.target.value)}
                                             className="block w-full p-2 border rounded"
                                         />
-                                        <select value={editStatus} onChange={e => setEditStatus(e.target.value as any)} className="block w-full p-2 border rounded">
-                                            <option>pending</option>
-                                            <option>won</option>
-                                            <option>lost</option>
+                                        <select
+                                            value={editStatus}
+                                            onChange={e => setEditStatus(e.target.value as "pending" | "won" | "lost")}
+                                            className="block w-full p-2 border rounded"
+                                        >
+                                            <option value="pending">pending</option>
+                                            <option value="won">won</option>
+                                            <option value="lost">lost</option>
                                         </select>
                                         <input
                                             type="number"
@@ -103,7 +91,10 @@ export const ManageStages: React.FC = () => {
                                             className="block w-full p-2 border rounded"
                                         />
                                         <div className="flex gap-2">
-                                            <button onClick={saveEdit} className="bg-green-500 text-white px-3 py-1 rounded">
+                                            <button
+                                                onClick={() => editMutation.mutate({ id: editingId, input: { name: editName, status: editStatus, conversionLikelihood: parseFloat(editLikelihood) } })}
+                                                className="bg-green-500 text-white px-3 py-1 rounded"
+                                            >
                                                 Save
                                             </button>
                                             <button onClick={() => setEditingId(null)} className="bg-gray-500 text-white px-3 py-1 rounded">
@@ -122,7 +113,10 @@ export const ManageStages: React.FC = () => {
                                             <button onClick={() => startEdit(stage)} className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">
                                                 Edit
                                             </button>
-                                            <button onClick={() => deleteStage(stage.id)} className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm">
+                                            <button
+                                                onClick={() => { if (confirm("Delete this stage?")) deleteMutation.mutate(stage.id); }}
+                                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                                            >
                                                 Delete
                                             </button>
                                         </div>
@@ -134,7 +128,14 @@ export const ManageStages: React.FC = () => {
                 )}
             </div>
 
-            <form onSubmit={addStage} className="space-y-3">
+            <form
+                onSubmit={e => {
+                    e.preventDefault();
+                    if (!newName) return;
+                    addMutation.mutate({ name: newName, status: newStatus, conversionLikelihood: parseFloat(newLikelihood) });
+                }}
+                className="space-y-3"
+            >
                 <h3 className="font-bold">Add New Stage</h3>
                 <input
                     type="text"
@@ -143,7 +144,11 @@ export const ManageStages: React.FC = () => {
                     placeholder="Stage name"
                     className="block w-full p-2 border rounded"
                 />
-                <select value={newStatus} onChange={e => setNewStatus(e.target.value as any)} className="block w-full p-2 border rounded">
+                <select
+                    value={newStatus}
+                    onChange={e => setNewStatus(e.target.value as "pending" | "won" | "lost")}
+                    className="block w-full p-2 border rounded"
+                >
                     <option value="pending">Pending</option>
                     <option value="won">Won</option>
                     <option value="lost">Lost</option>
@@ -160,7 +165,7 @@ export const ManageStages: React.FC = () => {
                         className="w-full"
                     />
                 </div>
-                <button type="submit" className="block w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <button type="submit" disabled={addMutation.isPending} className="block w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                     Add Stage
                 </button>
             </form>

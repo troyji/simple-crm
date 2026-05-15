@@ -12,6 +12,7 @@
         "lint": "eslint ."
     },
     "dependencies": {
+        "@tanstack/react-query": "^5.100.10",
         "axios": "^1.7.7",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
@@ -19,6 +20,7 @@
     "devDependencies": {
         "@eslint/js": "^9.16.0",
         "@tailwindcss/vite": "^4.0.0",
+        "@tanstack/react-query-devtools": "^5.100.10",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
         "@vitejs/plugin-react": "^4.3.4",

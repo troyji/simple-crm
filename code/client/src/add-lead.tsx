@@ -1,58 +1,49 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CustomField } from "./types";
+import { createLead } from "./api/leads";
+import { fetchCustomFields } from "./api/custom-fields";
+import { QUERY_KEYS } from "./api/query-keys";
 
-export const AddLead: React.FC<{ triggerRefresh?: number }> = ({ triggerRefresh = 0 }) => {
+export const AddLead: React.FC = () => {
+    const queryClient = useQueryClient();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [age, setAge] = useState("");
     const [phoneNumber, setPhoneNumber] = useState("");
-    const [customFields, setCustomFields] = useState<CustomField[]>([]);
     const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState(false);
-    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetchCustomFields();
-    }, [triggerRefresh]);
+    const { data: customFields = [] } = useQuery<CustomField[]>({
+        queryKey: QUERY_KEYS.customFields,
+        queryFn: fetchCustomFields,
+    });
 
-    const fetchCustomFields = async () => {
-        const result = await axios.get("/api/custom-fields");
-        setCustomFields(result.data);
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
-        try {
-            await axios.post("/api/leads", {
-                firstName,
-                lastName,
-                age,
-                phoneNumber,
-                customFields: customFieldValues,
-            });
-            setSuccess(true);
+    const mutation = useMutation({
+        mutationFn: createLead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leads });
             setFirstName("");
             setLastName("");
             setAge("");
             setPhoneNumber("");
             setCustomFieldValues({});
-            setTimeout(() => setSuccess(false), 3000);
-        } catch (error) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setError((error as any).response.data);
-        }
-        setLoading(false);
-    };
+            setTimeout(() => mutation.reset(), 3000);
+        },
+    });
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded bg-gray-100 w-96">
-            <h2 className="text-xl font-fold">Add Lead</h2>
-            {error && <p className="text-red-500">{error}</p>}
-            {success && <p className="text-green-500">Lead added successfully</p>}
+        <form
+            onSubmit={e => {
+                e.preventDefault();
+                mutation.mutate({ firstName, lastName, age, phoneNumber, customFields: customFieldValues });
+            }}
+            className="space-y-4 p-4 rounded bg-gray-100 w-96"
+        >
+            <h2 className="text-xl font-bold">Add Lead</h2>
+            {mutation.isError && (
+                <p className="text-red-500">{(mutation.error as { response?: { data?: string } })?.response?.data ?? "An error occurred"}</p>
+            )}
+            {mutation.isSuccess && <p className="text-green-500">Lead added successfully</p>}
             <input
                 type="text"
                 placeholder="First Name"
@@ -96,7 +87,7 @@ export const AddLead: React.FC<{ triggerRefresh?: number }> = ({ triggerRefresh 
                     className="block w-full p-2 border border-gray-300 rounded"
                 />
             ))}
-            <button type="submit" disabled={loading} className="block w-full p-2 bg-blue-500 text-white rounded">
+            <button type="submit" disabled={mutation.isPending} className="block w-full p-2 bg-blue-500 text-white rounded">
                 Add Lead
             </button>
         </form>

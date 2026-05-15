@@ -1,80 +1,74 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Lead, CustomField, Opportunity } from "./types";
-import axios from "axios";
+import { updateLead } from "./api/leads";
+import { fetchCustomFields } from "./api/custom-fields";
+import { fetchOpportunities, deleteOpportunity } from "./api/opportunities";
+import { QUERY_KEYS } from "./api/query-keys";
 
-export const LeadRow: React.FC<{ lead: Lead; onUpdate: () => void }> = ({ lead, onUpdate }) => {
+export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
+    const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
     const [showOpps, setShowOpps] = useState(false);
     const [firstName, setFirstName] = useState(lead.firstName);
     const [lastName, setLastName] = useState(lead.lastName);
     const [age, setAge] = useState(`${lead.age}`);
     const [phoneNumber, setPhoneNumber] = useState(lead.phoneNumber);
-    const [customFields, setCustomFields] = useState<CustomField[]>([]);
     const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(lead.customFields || {});
-    const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState(false);
-    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (isEditing) {
-            fetchCustomFields();
-        }
-    }, [isEditing]);
+    const { data: customFields = [] } = useQuery<CustomField[]>({
+        queryKey: QUERY_KEYS.customFields,
+        queryFn: fetchCustomFields,
+        enabled: isEditing,
+    });
 
-    useEffect(() => {
-        if (showOpps) {
-            fetchOpportunities();
-        }
-    }, [showOpps]);
+    const { data: allOpportunities = [] } = useQuery<Opportunity[]>({
+        queryKey: QUERY_KEYS.opportunities,
+        queryFn: fetchOpportunities,
+        enabled: showOpps,
+    });
+    const opportunities = allOpportunities.filter(opp => opp.lead.id === lead.id);
 
-    const fetchCustomFields = async () => {
-        const result = await axios.get("/api/custom-fields");
-        setCustomFields(result.data);
-    };
-
-    const fetchOpportunities = async () => {
-        const result = await axios.get("/api/opportunities");
-        setOpportunities(result.data.filter((opp: Opportunity) => opp.lead.id === lead.id));
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError("");
-        try {
-            await axios.put(`/api/leads/${lead.id}`, {
-                firstName,
-                lastName,
-                age,
-                phoneNumber,
-                customFields: customFieldValues,
-            });
-            setSuccess(true);
+    const updateMutation = useMutation({
+        mutationFn: updateLead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leads });
             setIsEditing(false);
-            onUpdate();
-        } catch (error) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setError((error as any).response.data);
-        }
-        setLoading(false);
-    };
+        },
+        onError: () => {
+            // keep form open on error
+        },
+    });
 
-    const deleteOpportunity = async (oppId: number) => {
-        await axios.delete(`/api/opportunities/${oppId}`);
-        fetchOpportunities();
-    };
+    const deleteMutation = useMutation({
+        mutationFn: deleteOpportunity,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.opportunities });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pipeline });
+        },
+    });
 
-    const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
     if (isEditing) {
         return (
             <tr>
                 <td colSpan={6}>
-                    <form onSubmit={handleSubmit} className="space-y-4 p-4 rounded bg-gray-100 w-96">
-                        <h2 className="text-xl font-fold">Edit</h2>
-                        {error && <p className="text-red-500">{error}</p>}
-                        {success && <p className="text-green-500">Lead updated successfully</p>}
+                    <form
+                        onSubmit={e => {
+                            e.preventDefault();
+                            updateMutation.mutate({ id: lead.id, input: { firstName, lastName, age, phoneNumber, customFields: customFieldValues } });
+                        }}
+                        className="space-y-4 p-4 rounded bg-gray-100 w-96"
+                    >
+                        <h2 className="text-xl font-bold">Edit</h2>
+                        {updateMutation.isError && (
+                            <p className="text-red-500">
+                                {(updateMutation.error as { response?: { data?: string } })?.response?.data ?? "An error occurred"}
+                            </p>
+                        )}
+                        {updateMutation.isSuccess && <p className="text-green-500">Lead updated successfully</p>}
                         <input
                             type="text"
                             placeholder="First Name"
@@ -118,7 +112,7 @@ export const LeadRow: React.FC<{ lead: Lead; onUpdate: () => void }> = ({ lead, 
                                 className="block w-full p-2 border border-gray-300 rounded"
                             />
                         ))}
-                        <button type="submit" disabled={loading} className="block w-full p-2 bg-blue-500 text-white rounded">
+                        <button type="submit" disabled={updateMutation.isPending} className="block w-full p-2 bg-blue-500 text-white rounded">
                             Update Lead
                         </button>
                     </form>
@@ -129,7 +123,7 @@ export const LeadRow: React.FC<{ lead: Lead; onUpdate: () => void }> = ({ lead, 
 
     return (
         <>
-            <tr key={lead.id}>
+            <tr>
                 <td>
                     <button onClick={() => setIsEditing(true)} className="mr-2">
                         Edit
@@ -161,7 +155,7 @@ export const LeadRow: React.FC<{ lead: Lead; onUpdate: () => void }> = ({ lead, 
                                                 </span>
                                             </div>
                                             <button
-                                                onClick={() => deleteOpportunity(opp.id)}
+                                                onClick={() => deleteMutation.mutate(opp.id)}
                                                 className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
                                             >
                                                 Delete

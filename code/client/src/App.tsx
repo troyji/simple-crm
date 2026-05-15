@@ -10,11 +10,6 @@ type Page = "home" | "pipeline" | "settings";
 
 export const App: React.FC = () => {
     const [currentPage, setCurrentPage] = useState<Page>("home");
-    const [fieldsRefresh, setFieldsRefresh] = useState(0);
-
-    const handleFieldsChanged = () => {
-        setFieldsRefresh(prev => prev + 1);
-    };
 
     const navClass = "px-4 py-2 rounded font-medium transition";
     const activeNavClass = "bg-blue-500 text-white";
@@ -39,8 +34,8 @@ export const App: React.FC = () => {
 
             {currentPage === "home" && (
                 <>
-                    <Leads refreshTrigger={fieldsRefresh} />
-                    <AddLead triggerRefresh={fieldsRefresh} />
+                    <Leads />
+                    <AddLead />
                 </>
             )}
 
@@ -48,7 +43,7 @@ export const App: React.FC = () => {
 
             {currentPage === "settings" && (
                 <>
-                    <ManageFields onFieldsChanged={handleFieldsChanged} />
+                    <ManageFields />
                     <ManageStages />
                     <ManageSettings />
                 </>

@@ -1,23 +1,15 @@
-import axios from "axios";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Lead } from "./types";
 import { LeadRow } from "./lead-row";
+import { fetchLeads } from "./api/leads";
+import { QUERY_KEYS } from "./api/query-keys";
 
-export const Leads: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger = 0 }) => {
-    const [leads, setLeads] = useState<Lead[]>([]);
-
-    useEffect(() => {
-        fetchLeads();
-    }, [refreshTrigger]);
-
-    const fetchLeads = async () => {
-        const result = await axios.get("/api/leads");
-        setLeads(result.data);
-    };
+export const Leads: React.FC = () => {
+    const { data: leads = [] } = useQuery<Lead[]>({ queryKey: QUERY_KEYS.leads, queryFn: fetchLeads });
 
     return (
         <div className="w-full">
-            <h2 className="text-xl font-fold">Leads</h2>
+            <h2 className="text-xl font-bold">Leads</h2>
             <table className="table-auto w-full">
                 <thead>
                     <tr>
@@ -30,7 +22,7 @@ export const Leads: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger = 
                 </thead>
                 <tbody>
                     {leads.map(lead => (
-                        <LeadRow lead={lead} key={lead.id} onUpdate={fetchLeads} />
+                        <LeadRow lead={lead} key={lead.id} />
                     ))}
                 </tbody>
             </table>
