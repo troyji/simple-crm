@@ -1,5 +1,6 @@
 import * as express from "express";
 import { leadsService } from "../services/leads.service";
+import { NotFoundError } from "../errors";
 
 export const leadsRouter = express.Router();
 
@@ -14,6 +15,6 @@ leadsRouter.post("/", async (req, res) => {
 
 leadsRouter.put("/:id", async (req, res) => {
     const lead = await leadsService.update(Number(req.params.id), req.body);
-    if (!lead) return res.status(404).json({ error: "Lead not found" });
+    if (!lead) throw new NotFoundError("Lead not found");
     res.json(lead);
 });

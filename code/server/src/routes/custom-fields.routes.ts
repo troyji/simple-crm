@@ -8,12 +8,8 @@ customFieldsRouter.get("/", async (_req, res) => {
 });
 
 customFieldsRouter.post("/", async (req, res) => {
-    try {
-        const field = await customFieldsService.create(req.body);
-        res.json(field);
-    } catch {
-        res.status(400).json({ error: "Field name already exists" });
-    }
+    const field = await customFieldsService.create(req.body);
+    res.json(field);
 });
 
 customFieldsRouter.delete("/:id", async (req, res) => {

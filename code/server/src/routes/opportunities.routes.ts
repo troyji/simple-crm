@@ -1,5 +1,6 @@
 import * as express from "express";
 import { opportunitiesService } from "../services/opportunities.service";
+import { NotFoundError } from "../errors";
 
 export const opportunitiesRouter = express.Router();
 
@@ -8,22 +9,14 @@ opportunitiesRouter.get("/", async (_req, res) => {
 });
 
 opportunitiesRouter.post("/", async (req, res) => {
-    try {
-        const opp = await opportunitiesService.create(req.body);
-        res.json(opp);
-    } catch (e) {
-        res.status(400).json({ error: (e as Error).message });
-    }
+    const opp = await opportunitiesService.create(req.body);
+    res.json(opp);
 });
 
 opportunitiesRouter.put("/:id", async (req, res) => {
-    try {
-        const opp = await opportunitiesService.update(Number(req.params.id), req.body);
-        if (!opp) return res.status(404).json({ error: "Opportunity not found" });
-        res.json(opp);
-    } catch (e) {
-        res.status(400).json({ error: (e as Error).message });
-    }
+    const opp = await opportunitiesService.update(Number(req.params.id), req.body);
+    if (!opp) throw new NotFoundError("Opportunity not found");
+    res.json(opp);
 });
 
 opportunitiesRouter.delete("/:id", async (req, res) => {

@@ -4,6 +4,7 @@ import { Lead } from "../entity/Lead";
 import { Stage } from "../entity/Stage";
 import { settingsService } from "./settings.service";
 import { computeExpectedValue } from "./expected-value";
+import { NotFoundError, ValidationError } from "../errors";
 
 export interface CreateOpportunityInput {
     leadId: number;
@@ -32,14 +33,14 @@ class OpportunitiesService {
     async create(input: CreateOpportunityInput): Promise<Opportunity> {
         const settings = await settingsService.getOpportunitySettings();
         if (input.value < settings.minValue) {
-            throw new Error(`Value must be at least ${settings.minValue}`);
+            throw new ValidationError(`Value must be at least ${settings.minValue}`);
         }
 
         const lead = await this.leadRepo.findOne({ where: { id: input.leadId } });
-        if (!lead) throw new Error("Lead not found");
+        if (!lead) throw new NotFoundError("Lead not found");
 
         const stage = await this.stageRepo.findOne({ where: { id: input.stageId } });
-        if (!stage) throw new Error("Stage not found");
+        if (!stage) throw new NotFoundError("Stage not found");
 
         const opp = Object.assign(new Opportunity(), {
             lead,
@@ -67,12 +68,12 @@ class OpportunitiesService {
 
         if (input.stageId !== undefined) {
             const newStage = await this.stageRepo.findOne({ where: { id: input.stageId } });
-            if (!newStage) throw new Error("Stage not found");
+            if (!newStage) throw new NotFoundError("Stage not found");
             opp.stage = newStage;
         }
         if (input.value !== undefined) {
             if (input.value < settings.minValue) {
-                throw new Error(`Value must be at least ${settings.minValue}`);
+                throw new ValidationError(`Value must be at least ${settings.minValue}`);
             }
             opp.value = input.value;
         }

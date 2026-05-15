@@ -1,5 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { CustomField } from "../entity/CustomField";
+import { ConflictError } from "../errors";
 
 export interface CustomFieldInput {
     name: string;
@@ -17,7 +18,11 @@ class CustomFieldsService {
 
     async create(input: CustomFieldInput): Promise<CustomField> {
         const field = Object.assign(new CustomField(), input);
-        return this.repo.save(field);
+        try {
+            return await this.repo.save(field);
+        } catch {
+            throw new ConflictError("Field name already exists");
+        }
     }
 
     async remove(id: number): Promise<void> {

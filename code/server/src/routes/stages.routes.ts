@@ -1,5 +1,6 @@
 import * as express from "express";
 import { stagesService } from "../services/stages.service";
+import { NotFoundError } from "../errors";
 
 export const stagesRouter = express.Router();
 
@@ -14,7 +15,7 @@ stagesRouter.post("/", async (req, res) => {
 
 stagesRouter.put("/:id", async (req, res) => {
     const stage = await stagesService.update(Number(req.params.id), req.body);
-    if (!stage) return res.status(404).json({ error: "Stage not found" });
+    if (!stage) throw new NotFoundError("Stage not found");
     res.json(stage);
 });
 
