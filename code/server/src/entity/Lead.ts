@@ -19,7 +19,7 @@ export class Lead {
     phoneNumber: string;
 
     @Column("simple-json", { nullable: true })
-    customFields: Record<string, string> = {};
+    customFields: Record<string, string | number> = {};
 
     @OneToMany(() => Opportunity, opportunity => opportunity.lead)
     opportunities: Opportunity[];

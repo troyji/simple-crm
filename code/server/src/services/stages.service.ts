@@ -1,6 +1,5 @@
 import { AppDataSource } from "../data-source";
 import { Stage } from "../entity/Stage";
-import { Opportunity } from "../entity/Opportunity";
 
 export interface StageInput {
     name: string;
@@ -37,16 +36,6 @@ class StagesService {
 
     async remove(id: number): Promise<void> {
         await this.repo.delete(id);
-    }
-
-    async recomputeWonLostStageTotals(status: "won" | "lost", newLikelihood: number): Promise<void> {
-        const stages = await this.repo.find({ where: { status } });
-        const oppRepo = AppDataSource.getRepository(Opportunity);
-        for (const stage of stages) {
-            const opps = await oppRepo.find({ where: { stage: { id: stage.id } } });
-            stage.expectedValue = opps.reduce((sum, opp) => sum + opp.value * newLikelihood, 0);
-            await this.repo.save(stage);
-        }
     }
 }
 

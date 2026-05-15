@@ -3,26 +3,29 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Lead, CustomField, Opportunity } from "@/types";
 import { updateLead } from "@/api/leads";
 import { fetchCustomFields } from "@/api/custom-fields";
-import { fetchOpportunities, deleteOpportunity } from "@/api/opportunities";
+import { fetchOpportunities, createOpportunity, updateOpportunity, deleteOpportunity } from "@/api/opportunities";
 import { QUERY_KEYS } from "@/api/query-keys";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
+import { initCustomFieldState } from "@/components/custom-field-inputs";
+import { LeadForm, type LeadSubmitValues } from "./lead-form";
+import { OpportunityForm, type OpportunitySubmitValues } from "./opportunity-form";
+import { OpportunityCard } from "./opportunity-card";
 
-export function LeadRow({ lead }: { lead: Lead }) {
+export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
+    const rowBg = shade ? "bg-gray-50" : "";
     const queryClient = useQueryClient();
-    const [isEditing, setIsEditing] = useState(false);
     const [showOpps, setShowOpps] = useState(false);
-    const [firstName, setFirstName] = useState(lead.firstName);
-    const [lastName, setLastName] = useState(lead.lastName);
-    const [age, setAge] = useState(`${lead.age}`);
-    const [phoneNumber, setPhoneNumber] = useState(lead.phoneNumber);
-    const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(lead.customFields || {});
+    const [showEditLeadDialog, setShowEditLeadDialog] = useState(false);
+    const [showAddOppDialog, setShowAddOppDialog] = useState(false);
+    const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null);
 
-    const { data: customFields = [] } = useQuery<CustomField[]>({
+    const { data: allCustomFields = [] } = useQuery<CustomField[]>({
         queryKey: QUERY_KEYS.customFields,
         queryFn: fetchCustomFields,
-        enabled: isEditing,
     });
+    const leadFields = allCustomFields.filter(f => (f.entity ?? "lead") === "lead");
+    const oppFields = allCustomFields.filter(f => f.entity === "opportunity");
 
     const { data: allOpportunities = [] } = useQuery<Opportunity[]>({
         queryKey: QUERY_KEYS.opportunities,
@@ -35,11 +38,29 @@ export function LeadRow({ lead }: { lead: Lead }) {
         mutationFn: updateLead,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leads });
-            setIsEditing(false);
+            setShowEditLeadDialog(false);
         },
     });
 
-    const deleteMutation = useMutation({
+    const createOppMutation = useMutation({
+        mutationFn: createOpportunity,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.opportunities });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pipeline });
+            setShowAddOppDialog(false);
+        },
+    });
+
+    const updateOppMutation = useMutation({
+        mutationFn: updateOpportunity,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.opportunities });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pipeline });
+            setEditingOpp(null);
+        },
+    });
+
+    const deleteOppMutation = useMutation({
         mutationFn: deleteOpportunity,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.opportunities });
@@ -47,87 +68,58 @@ export function LeadRow({ lead }: { lead: Lead }) {
         },
     });
 
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-
-    if (isEditing) {
-        return (
-            <tr>
-                <td colSpan={6}>
-                    <form
-                        onSubmit={e => {
-                            e.preventDefault();
-                            updateMutation.mutate({ id: lead.id, input: { firstName, lastName, age, phoneNumber, customFields: customFieldValues } });
-                        }}
-                        className="space-y-4 p-4 rounded bg-gray-100 w-96"
-                    >
-                        <h2 className="text-xl font-bold">Edit</h2>
-                        {updateMutation.isError && (
-                            <p className="text-sm text-red-500">
-                                {(updateMutation.error as { response?: { data?: string } })?.response?.data ?? "An error occurred"}
-                            </p>
-                        )}
-                        {updateMutation.isSuccess && <p className="text-sm text-green-500">Lead updated successfully</p>}
-                        <Input placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} />
-                        <Input placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} />
-                        <Input placeholder="Age" value={age} onChange={e => setAge(e.target.value)} />
-                        <Input placeholder="Phone Number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
-                        {customFields.map(field => (
-                            <Input
-                                key={field.id}
-                                placeholder={field.label}
-                                value={customFieldValues[field.name] || ""}
-                                onChange={e => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value })}
-                            />
-                        ))}
-                        <Button type="submit" disabled={updateMutation.isPending} className="w-full">
-                            Update Lead
-                        </Button>
-                    </form>
-                </td>
-            </tr>
-        );
-    }
+    const filledLeadFields = leadFields.filter(
+        f => lead.customFields?.[f.name] != null && lead.customFields[f.name] !== ""
+    );
 
     return (
         <>
-            <tr>
-                <td>
-                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="mr-2">
-                        Edit
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setShowOpps(!showOpps)}>
+            <tr className={rowBg}>
+                <td className="p-2">{lead.firstName}</td>
+                <td className="p-2">{lead.lastName}</td>
+                <td className="p-2">{lead.age}</td>
+                <td className="p-2">{lead.phoneNumber}</td>
+                <td className="p-2 text-right whitespace-nowrap">
+                    <Button variant="ghost" size="sm" onClick={() => setShowOpps(v => !v)} className="mr-1">
                         {showOpps ? "Hide" : "Show"} Opps
                     </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setShowEditLeadDialog(true)}>Edit</Button>
                 </td>
-                <td>{firstName}</td>
-                <td>{lastName}</td>
-                <td>{age}</td>
-                <td>{phoneNumber}</td>
             </tr>
+
+            {filledLeadFields.length > 0 && (
+                <tr className={rowBg}>
+                    <td colSpan={4} className="px-2 pb-2 text-sm text-gray-500">
+                        {filledLeadFields.map(f => (
+                            <span key={f.name} className="mr-4">
+                                <span className="font-medium">{f.label}:</span> {lead.customFields![f.name]}
+                            </span>
+                        ))}
+                    </td>
+                    <td />
+                </tr>
+            )}
+
             {showOpps && (
                 <tr>
-                    <td colSpan={5} className="p-4 bg-gray-50">
-                        <div className="space-y-4">
-                            <h3 className="font-bold">Opportunities</h3>
+                    <td colSpan={5} className="p-4 bg-white border-t">
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h3 className="font-bold">Opportunities</h3>
+                                <Button size="sm" onClick={() => setShowAddOppDialog(true)}>+ Add Opportunity</Button>
+                            </div>
                             {opportunities.length === 0 ? (
-                                <p className="text-gray-500">No opportunities</p>
+                                <p className="text-gray-500 text-sm">No opportunities yet.</p>
                             ) : (
                                 <div className="space-y-2">
                                     {opportunities.map(opp => (
-                                        <div key={opp.id} className="flex justify-between items-center p-2 bg-white border rounded">
-                                            <div>
-                                                <span className="font-medium">{opp.name || "Unnamed"}</span>
-                                                <span className="text-sm text-gray-600 ml-2">{opp.stage.name}</span>
-                                                <span className="text-sm text-gray-600 ml-2">{formatCurrency(opp.value)}</span>
-                                                <span className="text-sm text-gray-500 ml-2">
-                                                    Expected: {formatCurrency(opp.value * opp.stage.conversionLikelihood)}
-                                                </span>
-                                            </div>
-                                            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(opp.id)}>
-                                                Delete
-                                            </Button>
-                                        </div>
+                                        <OpportunityCard
+                                            key={opp.id}
+                                            opp={opp}
+                                            onEdit={() => setEditingOpp(opp)}
+                                            onDelete={() => deleteOppMutation.mutate(opp.id)}
+                                            isDeleting={deleteOppMutation.isPending}
+                                        />
                                     ))}
                                 </div>
                             )}
@@ -135,6 +127,74 @@ export function LeadRow({ lead }: { lead: Lead }) {
                     </td>
                 </tr>
             )}
+
+            <Dialog
+                open={showEditLeadDialog}
+                onClose={() => setShowEditLeadDialog(false)}
+                title="Edit Lead"
+            >
+                <LeadForm
+                    submitLabel="Update Lead"
+                    initialValues={{
+                        firstName: lead.firstName,
+                        lastName: lead.lastName,
+                        age: String(lead.age),
+                        phoneNumber: lead.phoneNumber,
+                        customFieldValues: initCustomFieldState(leadFields, lead.customFields),
+                    }}
+                    onSubmit={(values: LeadSubmitValues) => updateMutation.mutate({ id: lead.id, input: values })}
+                    isPending={updateMutation.isPending}
+                    error={updateMutation.isError
+                        ? ((updateMutation.error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "An error occurred")
+                        : undefined}
+                    onCancel={() => setShowEditLeadDialog(false)}
+                />
+            </Dialog>
+
+            <Dialog
+                open={showAddOppDialog}
+                onClose={() => setShowAddOppDialog(false)}
+                title="Add Opportunity"
+            >
+                <OpportunityForm
+                    submitLabel="Add"
+                    onSubmit={(values: OpportunitySubmitValues) =>
+                        createOppMutation.mutate({ leadId: lead.id, ...values })
+                    }
+                    isPending={createOppMutation.isPending}
+                    error={createOppMutation.isError
+                        ? ((createOppMutation.error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "An error occurred")
+                        : undefined}
+                    onCancel={() => setShowAddOppDialog(false)}
+                />
+            </Dialog>
+
+            <Dialog
+                open={editingOpp !== null}
+                onClose={() => setEditingOpp(null)}
+                title="Edit Opportunity"
+            >
+                {editingOpp && (
+                    <OpportunityForm
+                        key={editingOpp.id}
+                        submitLabel="Save"
+                        initialValues={{
+                            stageId: String(editingOpp.stage.id),
+                            value: String(editingOpp.value),
+                            name: editingOpp.name ?? "",
+                            customFieldValues: initCustomFieldState(oppFields, editingOpp.customFields),
+                        }}
+                        onSubmit={(values: OpportunitySubmitValues) =>
+                            updateOppMutation.mutate({ id: editingOpp.id, input: values })
+                        }
+                        isPending={updateOppMutation.isPending}
+                        error={updateOppMutation.isError
+                            ? ((updateOppMutation.error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "An error occurred")
+                            : undefined}
+                        onCancel={() => setEditingOpp(null)}
+                    />
+                )}
+            </Dialog>
         </>
     );
 }

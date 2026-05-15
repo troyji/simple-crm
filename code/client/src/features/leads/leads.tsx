@@ -1,31 +1,60 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Lead } from "@/types";
 import { LeadRow } from "./lead-row";
-import { fetchLeads } from "@/api/leads";
+import { LeadForm, type LeadSubmitValues } from "./lead-form";
+import { fetchLeads, createLead } from "@/api/leads";
 import { QUERY_KEYS } from "@/api/query-keys";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 
 export function Leads() {
+    const queryClient = useQueryClient();
+    const [showAddDialog, setShowAddDialog] = useState(false);
+
     const { data: leads = [] } = useQuery<Lead[]>({ queryKey: QUERY_KEYS.leads, queryFn: fetchLeads });
+
+    const createMutation = useMutation({
+        mutationFn: createLead,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leads });
+            setShowAddDialog(false);
+        },
+    });
 
     return (
         <div className="w-full">
-            <h2 className="text-xl font-bold">Leads</h2>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Leads</h2>
+                <Button onClick={() => setShowAddDialog(true)}>+ Add Lead</Button>
+            </div>
             <table className="table-auto w-full">
                 <thead>
                     <tr>
-                        <th></th>
-                        <th>First Name</th>
-                        <th>Last Name</th>
-                        <th>Age</th>
-                        <th>Phone Number</th>
+                        <th className="text-left p-2">First Name</th>
+                        <th className="text-left p-2">Last Name</th>
+                        <th className="text-left p-2">Age</th>
+                        <th className="text-left p-2">Phone Number</th>
+                        <th />
                     </tr>
                 </thead>
                 <tbody>
-                    {leads.map(lead => (
-                        <LeadRow lead={lead} key={lead.id} />
+                    {leads.map((lead, i) => (
+                        <LeadRow lead={lead} key={lead.id} shade={i % 2 === 1} />
                     ))}
                 </tbody>
             </table>
+            <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} title="Add Lead">
+                <LeadForm
+                    submitLabel="Add Lead"
+                    onSubmit={(values: LeadSubmitValues) => createMutation.mutate(values)}
+                    isPending={createMutation.isPending}
+                    error={createMutation.isError
+                        ? ((createMutation.error as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "An error occurred")
+                        : undefined}
+                    onCancel={() => setShowAddDialog(false)}
+                />
+            </Dialog>
         </div>
     );
 }

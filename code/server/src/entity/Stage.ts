@@ -18,9 +18,6 @@ export class Stage {
     @Column()
     order: number;
 
-    @Column("real", { default: 0 })
-    expectedValue: number;
-
     @OneToMany(() => Opportunity, opportunity => opportunity.stage)
     opportunities: Opportunity[];
 }

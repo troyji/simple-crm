@@ -4,7 +4,7 @@ export interface Lead {
     lastName: string;
     age: number;
     phoneNumber: string;
-    customFields?: Record<string, string>;
+    customFields?: Record<string, string | number>;
 }
 
 export interface CustomField {
@@ -21,7 +21,6 @@ export interface Stage {
     status: "pending" | "won" | "lost";
     conversionLikelihood: number;
     order: number;
-    expectedValue?: number;
 }
 
 export interface Opportunity {
@@ -29,10 +28,8 @@ export interface Opportunity {
     lead: Lead;
     stage: Stage;
     value: number;
-    expectedValue?: number;
     name?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    customFields?: Record<string, any>;
+    customFields?: Record<string, string | number>;
 }
 
 export interface AppSetting {

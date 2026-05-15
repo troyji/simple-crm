@@ -4,7 +4,6 @@ import { CustomField } from "./entity/CustomField";
 import { Stage } from "./entity/Stage";
 import { Opportunity } from "./entity/Opportunity";
 import { AppSetting } from "./entity/AppSetting";
-import { computeExpectedValue } from "./services/expected-value";
 
 const firstNames = ["John", "Jane", "Bob", "Alice", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Iris", "Jack", "Karen", "Leo", "Megan", "Nathan", "Olivia", "Peter", "Quinn", "Rachel"];
 const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson"];
@@ -95,20 +94,12 @@ export async function seedDatabase({ clearFirst = false }: { clearFirst?: boolea
                 region,
                 headcount: oppCount % 2 === 0 ? rawHeadcount : String(rawHeadcount),
             };
-            opp.expectedValue = computeExpectedValue(opp.value, opp.stage, { wonLikelihood: 1.0, lostLikelihood: 0.0 });
             await connection.manager.getRepository(Opportunity).save(opp);
             oppCount++;
         }
     }
 
     console.log(`✓ Created ${oppCount} opportunities`);
-
-    for (const stage of stages) {
-        const stageOpps = await connection.manager.getRepository(Opportunity).find({ where: { stage: { id: stage.id } } });
-        stage.expectedValue = stageOpps.reduce((sum, opp) => sum + (opp.expectedValue || 0), 0);
-        await connection.manager.getRepository(Stage).save(stage);
-    }
-
     console.log("✓ Seeding complete!");
 }
 

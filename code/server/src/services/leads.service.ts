@@ -6,7 +6,7 @@ export interface LeadInput {
     lastName: string;
     age: number;
     phoneNumber: string;
-    customFields?: Record<string, string>;
+    customFields?: Record<string, string | number>;
 }
 
 class LeadsService {

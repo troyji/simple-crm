@@ -6,7 +6,7 @@ export interface LeadInput {
     lastName: string;
     age: number | string;
     phoneNumber: string;
-    customFields?: Record<string, string>;
+    customFields?: Record<string, string | number>;
 }
 
 export const fetchLeads = () => apiClient.get<Lead[]>("/leads").then(r => r.data);
