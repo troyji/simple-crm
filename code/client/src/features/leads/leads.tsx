@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Lead } from "./types";
+import type { Lead } from "@/types";
 import { LeadRow } from "./lead-row";
-import { fetchLeads } from "./api/leads";
-import { QUERY_KEYS } from "./api/query-keys";
+import { fetchLeads } from "@/api/leads";
+import { QUERY_KEYS } from "@/api/query-keys";
 
-export const Leads: React.FC = () => {
+export function Leads() {
     const { data: leads = [] } = useQuery<Lead[]>({ queryKey: QUERY_KEYS.leads, queryFn: fetchLeads });
 
     return (
@@ -28,4 +28,4 @@ export const Leads: React.FC = () => {
             </table>
         </div>
     );
-};
+}

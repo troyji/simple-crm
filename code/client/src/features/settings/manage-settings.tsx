@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AppSetting } from "./types";
-import { fetchSettings, saveSetting } from "./api/settings";
-import { QUERY_KEYS } from "./api/query-keys";
+import type { AppSetting } from "@/types";
+import { fetchSettings, saveSetting } from "@/api/settings";
+import { QUERY_KEYS } from "@/api/query-keys";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-export const ManageSettings: React.FC = () => {
+export function ManageSettings() {
     const queryClient = useQueryClient();
     const [edits, setEdits] = useState<Record<string, string>>({});
 
@@ -47,19 +49,14 @@ export const ManageSettings: React.FC = () => {
                             <li key={s.key} className="flex justify-between items-center p-2 bg-gray-100 rounded">
                                 <div className="font-mono text-sm">{s.key}</div>
                                 <div className="flex gap-2 items-center">
-                                    <input
-                                        type="text"
+                                    <Input
                                         value={draft}
                                         onChange={e => setEdits(prev => ({ ...prev, [s.key]: e.target.value }))}
-                                        className="border rounded px-2 py-1 font-mono text-sm w-32"
+                                        className="font-mono w-32"
                                     />
-                                    <button
-                                        onClick={() => handleSave(s.key)}
-                                        disabled={!dirty || saveMutation.isPending}
-                                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-300 text-sm"
-                                    >
+                                    <Button size="sm" disabled={!dirty || saveMutation.isPending} onClick={() => handleSave(s.key)}>
                                         Save
-                                    </button>
+                                    </Button>
                                 </div>
                             </li>
                         );
@@ -68,4 +65,4 @@ export const ManageSettings: React.FC = () => {
             )}
         </div>
     );
-};
+}

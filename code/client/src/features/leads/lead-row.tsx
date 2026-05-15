@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Lead, CustomField, Opportunity } from "./types";
-import { updateLead } from "./api/leads";
-import { fetchCustomFields } from "./api/custom-fields";
-import { fetchOpportunities, deleteOpportunity } from "./api/opportunities";
-import { QUERY_KEYS } from "./api/query-keys";
+import type { Lead, CustomField, Opportunity } from "@/types";
+import { updateLead } from "@/api/leads";
+import { fetchCustomFields } from "@/api/custom-fields";
+import { fetchOpportunities, deleteOpportunity } from "@/api/opportunities";
+import { QUERY_KEYS } from "@/api/query-keys";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
+export function LeadRow({ lead }: { lead: Lead }) {
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
     const [showOpps, setShowOpps] = useState(false);
@@ -35,9 +37,6 @@ export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leads });
             setIsEditing(false);
         },
-        onError: () => {
-            // keep form open on error
-        },
     });
 
     const deleteMutation = useMutation({
@@ -64,57 +63,26 @@ export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
                     >
                         <h2 className="text-xl font-bold">Edit</h2>
                         {updateMutation.isError && (
-                            <p className="text-red-500">
+                            <p className="text-sm text-red-500">
                                 {(updateMutation.error as { response?: { data?: string } })?.response?.data ?? "An error occurred"}
                             </p>
                         )}
-                        {updateMutation.isSuccess && <p className="text-green-500">Lead updated successfully</p>}
-                        <input
-                            type="text"
-                            placeholder="First Name"
-                            value={firstName}
-                            onChange={e => setFirstName(e.target.value)}
-                            className="block w-full p-2 border border-gray-300 rounded"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Last Name"
-                            value={lastName}
-                            onChange={e => setLastName(e.target.value)}
-                            className="block w-full p-2 border border-gray-300 rounded"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Age"
-                            value={age}
-                            onChange={e => setAge(e.target.value)}
-                            className="block w-full p-2 border border-gray-300 rounded"
-                        />
-                        <input
-                            type="text"
-                            placeholder="Phone Number"
-                            value={phoneNumber}
-                            onChange={e => setPhoneNumber(e.target.value)}
-                            className="block w-full p-2 border border-gray-300 rounded"
-                        />
+                        {updateMutation.isSuccess && <p className="text-sm text-green-500">Lead updated successfully</p>}
+                        <Input placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                        <Input placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} />
+                        <Input placeholder="Age" value={age} onChange={e => setAge(e.target.value)} />
+                        <Input placeholder="Phone Number" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
                         {customFields.map(field => (
-                            <input
+                            <Input
                                 key={field.id}
-                                type="text"
                                 placeholder={field.label}
                                 value={customFieldValues[field.name] || ""}
-                                onChange={e =>
-                                    setCustomFieldValues({
-                                        ...customFieldValues,
-                                        [field.name]: e.target.value,
-                                    })
-                                }
-                                className="block w-full p-2 border border-gray-300 rounded"
+                                onChange={e => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value })}
                             />
                         ))}
-                        <button type="submit" disabled={updateMutation.isPending} className="block w-full p-2 bg-blue-500 text-white rounded">
+                        <Button type="submit" disabled={updateMutation.isPending} className="w-full">
                             Update Lead
-                        </button>
+                        </Button>
                     </form>
                 </td>
             </tr>
@@ -125,10 +93,12 @@ export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
         <>
             <tr>
                 <td>
-                    <button onClick={() => setIsEditing(true)} className="mr-2">
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="mr-2">
                         Edit
-                    </button>
-                    <button onClick={() => setShowOpps(!showOpps)}>{showOpps ? "Hide" : "Show"} Opps</button>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setShowOpps(!showOpps)}>
+                        {showOpps ? "Hide" : "Show"} Opps
+                    </Button>
                 </td>
                 <td>{firstName}</td>
                 <td>{lastName}</td>
@@ -154,12 +124,9 @@ export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
                                                     Expected: {formatCurrency(opp.value * opp.stage.conversionLikelihood)}
                                                 </span>
                                             </div>
-                                            <button
-                                                onClick={() => deleteMutation.mutate(opp.id)}
-                                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
-                                            >
+                                            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(opp.id)}>
                                                 Delete
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
@@ -170,4 +137,4 @@ export const LeadRow: React.FC<{ lead: Lead }> = ({ lead }) => {
             )}
         </>
     );
-};
+}

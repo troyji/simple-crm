@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { PipelineReport } from "./types";
-import { fetchPipeline } from "./api/pipeline";
-import { QUERY_KEYS } from "./api/query-keys";
+import type { PipelineReport } from "@/types";
+import { fetchPipeline } from "@/api/pipeline";
+import { QUERY_KEYS } from "@/api/query-keys";
+import { Card } from "@/components/ui/card";
 
-export const Pipeline: React.FC = () => {
+export function Pipeline() {
     const { data: report, isPending } = useQuery<PipelineReport>({ queryKey: QUERY_KEYS.pipeline, queryFn: fetchPipeline });
 
     if (isPending) return <p>Loading pipeline...</p>;
@@ -17,14 +18,14 @@ export const Pipeline: React.FC = () => {
             <h2 className="text-2xl font-bold">Pipeline Report</h2>
 
             <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 rounded border border-blue-200">
+                <Card variant="info">
                     <p className="text-sm text-gray-600">Total Pipeline Value</p>
                     <p className="text-2xl font-bold">{formatCurrency(report.totalValue)}</p>
-                </div>
-                <div className="p-4 bg-green-50 rounded border border-green-200">
+                </Card>
+                <Card variant="success">
                     <p className="text-sm text-gray-600">Expected Close Value</p>
                     <p className="text-2xl font-bold">{formatCurrency(report.expectedValue)}</p>
-                </div>
+                </Card>
             </div>
 
             <table className="table-auto w-full border-collapse border border-gray-300">
@@ -57,4 +58,4 @@ export const Pipeline: React.FC = () => {
             </table>
         </div>
     );
-};
+}

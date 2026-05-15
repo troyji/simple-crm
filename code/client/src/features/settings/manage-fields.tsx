@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CustomField } from "./types";
-import { fetchCustomFields, createCustomField, deleteCustomField } from "./api/custom-fields";
-import { QUERY_KEYS } from "./api/query-keys";
+import type { CustomField } from "@/types";
+import { fetchCustomFields, createCustomField, deleteCustomField } from "@/api/custom-fields";
+import { QUERY_KEYS } from "@/api/query-keys";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-export const ManageFields: React.FC = () => {
+export function ManageFields() {
     const queryClient = useQueryClient();
     const [newFieldName, setNewFieldName] = useState("");
     const [newFieldLabel, setNewFieldLabel] = useState("");
     const [newFieldEntity, setNewFieldEntity] = useState("lead");
     const [newFieldType, setNewFieldType] = useState("text");
+    const [addError, setAddError] = useState<string | null>(null);
 
     const { data: fields = [] } = useQuery<CustomField[]>({
         queryKey: QUERY_KEYS.customFields,
@@ -24,10 +29,9 @@ export const ManageFields: React.FC = () => {
             setNewFieldLabel("");
             setNewFieldEntity("lead");
             setNewFieldType("text");
+            setAddError(null);
         },
-        onError: () => {
-            alert("Failed to add field. Field name might already exist.");
-        },
+        onError: () => setAddError("Failed to add field. Field name might already exist."),
     });
 
     const deleteMutation = useMutation({
@@ -51,14 +55,13 @@ export const ManageFields: React.FC = () => {
                                 <div>
                                     <span className="font-medium">{field.label}</span>
                                     <span className="text-gray-500 text-sm ml-2">({field.name})</span>
-                                    <span className="text-gray-400 text-xs ml-2">[{field.entity || "lead"} · {field.type || "text"}]</span>
+                                    <span className="text-gray-400 text-xs ml-2">
+                                        [{field.entity || "lead"} · {field.type || "text"}]
+                                    </span>
                                 </div>
-                                <button
-                                    onClick={() => deleteMutation.mutate(field.id)}
-                                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                                >
+                                <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(field.id)}>
                                     Delete
-                                </button>
+                                </Button>
                             </li>
                         ))}
                     </ul>
@@ -74,54 +77,45 @@ export const ManageFields: React.FC = () => {
                 className="space-y-3"
             >
                 <h3 className="font-bold">Add New Field</h3>
+                {addError && <p className="text-sm text-red-500">{addError}</p>}
                 <div>
-                    <label className="block text-sm font-medium mb-1">Field Name (e.g., company)</label>
-                    <input
-                        type="text"
+                    <Label htmlFor="field-name">Field Name (e.g., company)</Label>
+                    <Input
+                        id="field-name"
                         value={newFieldName}
                         onChange={e => setNewFieldName(e.target.value)}
                         placeholder="company"
-                        className="border rounded px-2 py-1 w-full"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium mb-1">Field Label (e.g., Company)</label>
-                    <input
-                        type="text"
+                    <Label htmlFor="field-label">Field Label (e.g., Company)</Label>
+                    <Input
+                        id="field-label"
                         value={newFieldLabel}
                         onChange={e => setNewFieldLabel(e.target.value)}
                         placeholder="Company"
-                        className="border rounded px-2 py-1 w-full"
                     />
                 </div>
                 <div className="flex gap-2">
                     <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Applies to</label>
-                        <select
-                            value={newFieldEntity}
-                            onChange={e => setNewFieldEntity(e.target.value)}
-                            className="border rounded px-2 py-1 w-full"
-                        >
+                        <Label htmlFor="field-entity">Applies to</Label>
+                        <Select id="field-entity" value={newFieldEntity} onChange={e => setNewFieldEntity(e.target.value)}>
                             <option value="lead">Lead</option>
                             <option value="opportunity">Opportunity</option>
-                        </select>
+                        </Select>
                     </div>
                     <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">Type</label>
-                        <select
-                            value={newFieldType}
-                            onChange={e => setNewFieldType(e.target.value)}
-                            className="border rounded px-2 py-1 w-full"
-                        >
+                        <Label htmlFor="field-type">Type</Label>
+                        <Select id="field-type" value={newFieldType} onChange={e => setNewFieldType(e.target.value)}>
                             <option value="text">Text</option>
                             <option value="number">Number</option>
-                        </select>
+                        </Select>
                     </div>
                 </div>
-                <button type="submit" disabled={addMutation.isPending} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                <Button type="submit" disabled={addMutation.isPending}>
                     Add Field
-                </button>
+                </Button>
             </form>
         </div>
     );
-};
+}

@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stage } from "./types";
-import { fetchStages, createStage, updateStage, deleteStage } from "./api/stages";
-import { QUERY_KEYS } from "./api/query-keys";
+import type { Stage } from "@/types";
+import { fetchStages, createStage, updateStage, deleteStage } from "@/api/stages";
+import { QUERY_KEYS } from "@/api/query-keys";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-export const ManageStages: React.FC = () => {
+export function ManageStages() {
     const queryClient = useQueryClient();
     const [newName, setNewName] = useState("");
     const [newStatus, setNewStatus] = useState<"pending" | "won" | "lost">("pending");
@@ -13,6 +17,8 @@ export const ManageStages: React.FC = () => {
     const [editName, setEditName] = useState("");
     const [editStatus, setEditStatus] = useState<"pending" | "won" | "lost">("pending");
     const [editLikelihood, setEditLikelihood] = useState("0.5");
+    const [addError, setAddError] = useState<string | null>(null);
+    const [editError, setEditError] = useState<string | null>(null);
 
     const { data: stages = [] } = useQuery<Stage[]>({
         queryKey: QUERY_KEYS.stages,
@@ -26,8 +32,9 @@ export const ManageStages: React.FC = () => {
             setNewName("");
             setNewStatus("pending");
             setNewLikelihood("0.5");
+            setAddError(null);
         },
-        onError: () => alert("Failed to add stage"),
+        onError: () => setAddError("Failed to add stage"),
     });
 
     const editMutation = useMutation({
@@ -35,8 +42,9 @@ export const ManageStages: React.FC = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stages });
             setEditingId(null);
+            setEditError(null);
         },
-        onError: () => alert("Failed to update stage"),
+        onError: () => setEditError("Failed to update stage"),
     });
 
     const deleteMutation = useMutation({
@@ -51,6 +59,7 @@ export const ManageStages: React.FC = () => {
         setEditName(stage.name);
         setEditStatus(stage.status);
         setEditLikelihood(stage.conversionLikelihood.toString());
+        setEditError(null);
     };
 
     return (
@@ -66,40 +75,43 @@ export const ManageStages: React.FC = () => {
                             <li key={stage.id} className="p-3 bg-gray-100 rounded">
                                 {editingId === stage.id ? (
                                     <div className="space-y-2">
-                                        <input
-                                            type="text"
-                                            value={editName}
-                                            onChange={e => setEditName(e.target.value)}
-                                            className="block w-full p-2 border rounded"
-                                        />
-                                        <select
+                                        {editError && <p className="text-sm text-red-500">{editError}</p>}
+                                        <Input value={editName} onChange={e => setEditName(e.target.value)} />
+                                        <Select
                                             value={editStatus}
                                             onChange={e => setEditStatus(e.target.value as "pending" | "won" | "lost")}
-                                            className="block w-full p-2 border rounded"
                                         >
                                             <option value="pending">pending</option>
                                             <option value="won">won</option>
                                             <option value="lost">lost</option>
-                                        </select>
-                                        <input
+                                        </Select>
+                                        <Input
                                             type="number"
                                             min="0"
                                             max="1"
                                             step="0.05"
                                             value={editLikelihood}
                                             onChange={e => setEditLikelihood(e.target.value)}
-                                            className="block w-full p-2 border rounded"
                                         />
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => editMutation.mutate({ id: editingId, input: { name: editName, status: editStatus, conversionLikelihood: parseFloat(editLikelihood) } })}
-                                                className="bg-green-500 text-white px-3 py-1 rounded"
+                                            <Button
+                                                size="sm"
+                                                onClick={() =>
+                                                    editMutation.mutate({
+                                                        id: editingId,
+                                                        input: {
+                                                            name: editName,
+                                                            status: editStatus,
+                                                            conversionLikelihood: parseFloat(editLikelihood),
+                                                        },
+                                                    })
+                                                }
                                             >
                                                 Save
-                                            </button>
-                                            <button onClick={() => setEditingId(null)} className="bg-gray-500 text-white px-3 py-1 rounded">
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
                                                 Cancel
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 ) : (
@@ -110,15 +122,18 @@ export const ManageStages: React.FC = () => {
                                             <span className="text-xs text-gray-600 ml-2">{(stage.conversionLikelihood * 100).toFixed(0)}%</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button onClick={() => startEdit(stage)} className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">
+                                            <Button size="sm" onClick={() => startEdit(stage)}>
                                                 Edit
-                                            </button>
-                                            <button
-                                                onClick={() => { if (confirm("Delete this stage?")) deleteMutation.mutate(stage.id); }}
-                                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => {
+                                                    if (confirm("Delete this stage?")) deleteMutation.mutate(stage.id);
+                                                }}
                                             >
                                                 Delete
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 )}
@@ -137,25 +152,17 @@ export const ManageStages: React.FC = () => {
                 className="space-y-3"
             >
                 <h3 className="font-bold">Add New Stage</h3>
-                <input
-                    type="text"
-                    value={newName}
-                    onChange={e => setNewName(e.target.value)}
-                    placeholder="Stage name"
-                    className="block w-full p-2 border rounded"
-                />
-                <select
-                    value={newStatus}
-                    onChange={e => setNewStatus(e.target.value as "pending" | "won" | "lost")}
-                    className="block w-full p-2 border rounded"
-                >
+                {addError && <p className="text-sm text-red-500">{addError}</p>}
+                <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Stage name" />
+                <Select value={newStatus} onChange={e => setNewStatus(e.target.value as "pending" | "won" | "lost")}>
                     <option value="pending">Pending</option>
                     <option value="won">Won</option>
                     <option value="lost">Lost</option>
-                </select>
+                </Select>
                 <div>
-                    <label className="text-sm block mb-1">Conversion Likelihood: {(parseFloat(newLikelihood) * 100).toFixed(0)}%</label>
+                    <Label htmlFor="new-likelihood">Conversion Likelihood: {(parseFloat(newLikelihood) * 100).toFixed(0)}%</Label>
                     <input
+                        id="new-likelihood"
                         type="range"
                         min="0"
                         max="1"
@@ -165,10 +172,10 @@ export const ManageStages: React.FC = () => {
                         className="w-full"
                     />
                 </div>
-                <button type="submit" disabled={addMutation.isPending} className="block w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <Button type="submit" disabled={addMutation.isPending} className="w-full">
                     Add Stage
-                </button>
+                </Button>
             </form>
         </div>
     );
-};
+}
