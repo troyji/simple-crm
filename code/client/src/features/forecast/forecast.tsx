@@ -1,21 +1,25 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Opportunity, Stage, CustomField } from "@/types";
 import { fetchOpportunities } from "@/api/opportunities";
 import { fetchStages } from "@/api/stages";
 import { fetchCustomFields } from "@/api/custom-fields";
+import { fetchSettings } from "@/api/settings";
 import { QUERY_KEYS } from "@/api/query-keys";
+import type { AppSetting } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Collapsible } from "@/components/ui/collapsible";
 import { StageFilter } from "./stage-filter";
-import type { BucketKey } from "./forecast.utils";
+import type { BucketKey, LikelihoodSettings } from "./forecast.utils";
 import {
     BUCKET_KEYS,
     parseLocalDate,
     formatCurrency,
     formatDate,
+    calcTotalValue,
     calcExpectedValue,
+    resolveLikelihood,
     getBucketLabel,
     groupOpps,
     sortOpps,
@@ -34,6 +38,22 @@ export function Forecast() {
         queryKey: QUERY_KEYS.customFields,
         queryFn: fetchCustomFields,
     });
+    const { data: settings = [], isPending: settingsLoading } = useQuery<AppSetting[]>({
+        queryKey: QUERY_KEYS.settings,
+        queryFn: fetchSettings,
+    });
+
+    const likelihoodSettings: LikelihoodSettings = useMemo(() => {
+        const get = (key: string, fallback: number) => {
+            const s = settings.find(s => s.key === key);
+            const n = s ? parseFloat(s.value) : NaN;
+            return isNaN(n) ? fallback : n;
+        };
+        return {
+            wonLikelihood: get("wonStageLikelihood", 1),
+            lostLikelihood: get("lostStageLikelihood", 0),
+        };
+    }, [settings]);
 
     const [groupByField, setGroupByField] = useState<string>("");
     const [filtersInitialized, setFiltersInitialized] = useState(false);
@@ -78,7 +98,7 @@ export function Forecast() {
         });
     };
 
-    const buckets = useMemo(() => {
+    const buckets = useMemo<Record<BucketKey, Opportunity[]>>(() => {
         const today = new Date();
         const year = today.getFullYear();
         const month = today.getMonth();
@@ -122,7 +142,7 @@ export function Forecast() {
         return result;
     }, [opportunities, appliedFilter]);
 
-    if (oppsLoading || stagesLoading || fieldsLoading) return <p>Loading forecast...</p>;
+    if (oppsLoading || stagesLoading || fieldsLoading || settingsLoading) return <p>Loading forecast...</p>;
 
     const today = new Date();
     const year = today.getFullYear();
@@ -152,7 +172,7 @@ export function Forecast() {
                             className="text-sm py-1 w-36"
                         >
                             <option value="">None</option>
-                            {customFields.map(f => (
+                            {customFields.filter(f => f.entity === "opportunity").map(f => (
                                 <option key={f.id} value={f.name}>{f.label}</option>
                             ))}
                         </Select>
@@ -172,7 +192,8 @@ export function Forecast() {
                             <div className="flex items-center gap-4">
                                 <span className="font-semibold">{label}</span>
                                 <span className="text-sm text-gray-500">{opps.length} {opps.length === 1 ? "opportunity" : "opportunities"}</span>
-                                <span className="text-sm font-medium text-blue-700">{formatCurrency(calcExpectedValue(opps))}</span>
+                                <span className="text-sm text-gray-500">Total: {formatCurrency(calcTotalValue(opps))}</span>
+                                <span className="text-sm font-medium text-blue-700">Expected Value: {formatCurrency(calcExpectedValue(opps, likelihoodSettings))}</span>
                             </div>
                         }
                     >
@@ -190,42 +211,56 @@ export function Forecast() {
                                             <th className="border px-3 py-2">Lead Name</th>
                                             <th className="border px-3 py-2">Stage</th>
                                             <th className="border px-3 py-2 text-right">Value</th>
+                                            <th className="border px-3 py-2 text-right">Conv. %</th>
+                                            <th className="border px-3 py-2 text-right">Expected Value</th>
                                             <th className="border px-3 py-2 text-right">Expected Close</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {selectedField ? (
                                             [...groups!.entries()].map(([groupLabel, groupedOpps]) => (
-                                                <>
-                                                    <tr key={`hdr-${groupLabel}`} className="bg-gray-100">
-                                                        <td colSpan={4} className="border px-3 py-1.5 text-sm font-medium text-gray-700">
+                                                <React.Fragment key={groupLabel}>
+                                                    <tr className="bg-gray-100">
+                                                        <td colSpan={6} className="border px-3 py-1.5 text-sm font-medium text-gray-700">
                                                             {selectedField.label}: {groupLabel}
                                                             <span className="ml-3 font-normal text-gray-500">
                                                                 {groupedOpps.length} {groupedOpps.length === 1 ? "opportunity" : "opportunities"}
                                                                 {" · "}
-                                                                {formatCurrency(calcExpectedValue(groupedOpps))} expected
+                                                                Total: {formatCurrency(calcTotalValue(groupedOpps))}
+                                                                {" · "}
+                                                                Expected: {formatCurrency(calcExpectedValue(groupedOpps, likelihoodSettings))}
                                                             </span>
                                                         </td>
                                                     </tr>
-                                                    {groupedOpps.map(opp => (
+                                                    {groupedOpps.map(opp => {
+                                                        const likelihood = resolveLikelihood(opp, likelihoodSettings);
+                                                        return (
                                                         <tr key={opp.id} className="hover:bg-gray-50">
                                                             <td className="border px-3 py-2">{opp.lead.firstName} {opp.lead.lastName}</td>
                                                             <td className="border px-3 py-2">{opp.stage.name}</td>
                                                             <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value)}</td>
+                                                            <td className="border px-3 py-2 text-right font-mono">{(likelihood * 100).toFixed(0)}%</td>
+                                                            <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value * likelihood)}</td>
                                                             <td className="border px-3 py-2 text-right font-mono">{formatDate(opp.expectedCloseDate)}</td>
                                                         </tr>
-                                                    ))}
-                                                </>
+                                                        );
+                                                    })}
+                                                </React.Fragment>
                                             ))
                                         ) : (
-                                            opps.map(opp => (
+                                            opps.map(opp => {
+                                                const likelihood = resolveLikelihood(opp, likelihoodSettings);
+                                                return (
                                                 <tr key={opp.id} className="hover:bg-gray-50">
                                                     <td className="border px-3 py-2">{opp.lead.firstName} {opp.lead.lastName}</td>
                                                     <td className="border px-3 py-2">{opp.stage.name}</td>
                                                     <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value)}</td>
+                                                    <td className="border px-3 py-2 text-right font-mono">{(likelihood * 100).toFixed(0)}%</td>
+                                                    <td className="border px-3 py-2 text-right font-mono">{formatCurrency(opp.value * likelihood)}</td>
                                                     <td className="border px-3 py-2 text-right font-mono">{formatDate(opp.expectedCloseDate)}</td>
                                                 </tr>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </tbody>
                                 </table>

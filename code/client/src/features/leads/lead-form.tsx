@@ -57,11 +57,11 @@ export function LeadForm({ submitLabel, initialValues, onSubmit, isPending, erro
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div>
                 <Label>First Name</Label>
-                <Input value={firstName} onChange={e => setFirstName(e.target.value)} />
+                <Input value={firstName} onChange={e => setFirstName(e.target.value)} required />
             </div>
             <div>
                 <Label>Last Name</Label>
-                <Input value={lastName} onChange={e => setLastName(e.target.value)} />
+                <Input value={lastName} onChange={e => setLastName(e.target.value)} required />
             </div>
             <div>
                 <Label>Age</Label>

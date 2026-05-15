@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-interface CheckboxProps extends HTMLAttributes<HTMLDivElement> {
+interface CheckboxProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange"> {
     id: string;
     label: string;
     checked: boolean;

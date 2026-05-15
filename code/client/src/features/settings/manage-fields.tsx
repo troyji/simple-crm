@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function ManageFields() {
     const queryClient = useQueryClient();
@@ -15,6 +16,7 @@ export function ManageFields() {
     const [newFieldEntity, setNewFieldEntity] = useState("lead");
     const [newFieldType, setNewFieldType] = useState("text");
     const [addError, setAddError] = useState<string | null>(null);
+    const [confirmDeleteField, setConfirmDeleteField] = useState<CustomField | null>(null);
 
     const { data: fields = [] } = useQuery<CustomField[]>({
         queryKey: QUERY_KEYS.customFields,
@@ -59,7 +61,7 @@ export function ManageFields() {
                                         [{field.entity || "lead"} · {field.type || "text"}]
                                     </span>
                                 </div>
-                                <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate(field.id)}>
+                                <Button variant="destructive" size="sm" onClick={() => setConfirmDeleteField(field)}>
                                     Delete
                                 </Button>
                             </li>
@@ -116,6 +118,17 @@ export function ManageFields() {
                     Add Field
                 </Button>
             </form>
+            <ConfirmDialog
+                open={confirmDeleteField !== null}
+                title="Delete Custom Field"
+                message={`Delete "${confirmDeleteField?.label}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                onConfirm={() => {
+                    if (confirmDeleteField) deleteMutation.mutate(confirmDeleteField.id);
+                    setConfirmDeleteField(null);
+                }}
+                onCancel={() => setConfirmDeleteField(null)}
+            />
         </div>
     );
 }

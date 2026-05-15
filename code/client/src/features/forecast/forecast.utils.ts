@@ -3,6 +3,17 @@ import type { Opportunity } from "@/types";
 export type BucketKey = "prev" | 0 | 1 | 2 | 3 | 4 | 5 | "beyond";
 export const BUCKET_KEYS: BucketKey[] = ["prev", 0, 1, 2, 3, 4, 5, "beyond"];
 
+export interface LikelihoodSettings {
+    wonLikelihood: number;
+    lostLikelihood: number;
+}
+
+export function resolveLikelihood(opp: Opportunity, settings: LikelihoodSettings): number {
+    if (opp.stage.status === "won") return settings.wonLikelihood;
+    if (opp.stage.status === "lost") return settings.lostLikelihood;
+    return opp.stage.conversionLikelihood;
+}
+
 const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
@@ -22,8 +33,12 @@ export function formatDate(s: string | null | undefined): string {
     return parseLocalDate(s).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function calcExpectedValue(opps: Opportunity[]): number {
-    return opps.reduce((sum, opp) => sum + opp.value * opp.stage.conversionLikelihood, 0);
+export function calcTotalValue(opps: Opportunity[]): number {
+    return opps.reduce((sum, opp) => sum + opp.value, 0);
+}
+
+export function calcExpectedValue(opps: Opportunity[], settings: LikelihoodSettings): number {
+    return opps.reduce((sum, opp) => sum + opp.value * resolveLikelihood(opp, settings), 0);
 }
 
 export function getBucketLabel(key: BucketKey, year: number, month: number): string {

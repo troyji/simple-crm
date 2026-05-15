@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function ManageStages() {
     const queryClient = useQueryClient();
@@ -19,6 +20,7 @@ export function ManageStages() {
     const [editLikelihood, setEditLikelihood] = useState("0.5");
     const [addError, setAddError] = useState<string | null>(null);
     const [editError, setEditError] = useState<string | null>(null);
+    const [confirmDeleteStage, setConfirmDeleteStage] = useState<Stage | null>(null);
 
     const { data: stages = [] } = useQuery<Stage[]>({
         queryKey: QUERY_KEYS.stages,
@@ -128,9 +130,7 @@ export function ManageStages() {
                                             <Button
                                                 variant="destructive"
                                                 size="sm"
-                                                onClick={() => {
-                                                    if (confirm("Delete this stage?")) deleteMutation.mutate(stage.id);
-                                                }}
+                                                onClick={() => setConfirmDeleteStage(stage)}
                                             >
                                                 Delete
                                             </Button>
@@ -176,6 +176,17 @@ export function ManageStages() {
                     Add Stage
                 </Button>
             </form>
+            <ConfirmDialog
+                open={confirmDeleteStage !== null}
+                title="Delete Stage"
+                message={`Delete "${confirmDeleteStage?.name}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                onConfirm={() => {
+                    if (confirmDeleteStage) deleteMutation.mutate(confirmDeleteStage.id);
+                    setConfirmDeleteStage(null);
+                }}
+                onCancel={() => setConfirmDeleteStage(null)}
+            />
         </div>
     );
 }

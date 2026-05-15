@@ -8,8 +8,8 @@ const inactive = `${navClass} bg-gray-200 text-gray-700 hover:bg-gray-300`;
 
 export const Route = createRootRoute({
     component: () => (
-        <div className="p-4 space-y-8">
-            <div className="flex justify-between items-center">
+        <div className="space-y-8">
+            <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-200">
                 <h1 className="text-xl font-bold">SimpleCRM</h1>
                 <div className="flex gap-2">
                     <Link to="/" activeProps={{ className: active }} inactiveProps={{ className: inactive }} activeOptions={{ exact: true }}>
@@ -26,7 +26,9 @@ export const Route = createRootRoute({
                     </Link>
                 </div>
             </div>
+            <div className="px-4">
             <Outlet />
+            </div>
             <ReactQueryDevtools initialIsOpen={false} />
             <TanStackRouterDevtools />
         </div>

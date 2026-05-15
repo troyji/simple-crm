@@ -14,6 +14,12 @@ interface Props {
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
+const formatDate = (s: string | null | undefined) => {
+    if (!s) return null;
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+};
+
 export function OpportunityCard({ opp, onEdit, onDelete, isDeleting }: Props) {
     const { data: allCustomFields = [] } = useQuery<CustomField[]>({
         queryKey: QUERY_KEYS.customFields,
@@ -33,7 +39,7 @@ export function OpportunityCard({ opp, onEdit, onDelete, isDeleting }: Props) {
                 </span>
                 {opp.expectedCloseDate && (
                     <span className="text-sm text-gray-500 ml-2">
-                        Closes: {opp.expectedCloseDate}
+                        Closes: {formatDate(opp.expectedCloseDate)}
                     </span>
                 )}
                 {filledFields.map(f => (

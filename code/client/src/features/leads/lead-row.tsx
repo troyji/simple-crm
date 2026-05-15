@@ -7,24 +7,25 @@ import { fetchOpportunities, createOpportunity, updateOpportunity, deleteOpportu
 import { QUERY_KEYS } from "@/api/query-keys";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { initCustomFieldState } from "@/components/custom-field-inputs";
 import { LeadForm, type LeadSubmitValues } from "./lead-form";
 import { OpportunityForm, type OpportunitySubmitValues } from "./opportunity-form";
 import { OpportunityCard } from "./opportunity-card";
 
-export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
+export function LeadRow({ lead, shade, leadFields }: { lead: Lead; shade?: boolean; leadFields: CustomField[] }) {
     const rowBg = shade ? "bg-gray-50" : "";
     const queryClient = useQueryClient();
     const [showOpps, setShowOpps] = useState(false);
     const [showEditLeadDialog, setShowEditLeadDialog] = useState(false);
     const [showAddOppDialog, setShowAddOppDialog] = useState(false);
     const [editingOpp, setEditingOpp] = useState<Opportunity | null>(null);
+    const [confirmDeleteOpp, setConfirmDeleteOpp] = useState<Opportunity | null>(null);
 
     const { data: allCustomFields = [] } = useQuery<CustomField[]>({
         queryKey: QUERY_KEYS.customFields,
         queryFn: fetchCustomFields,
     });
-    const leadFields = allCustomFields.filter(f => (f.entity ?? "lead") === "lead");
     const oppFields = allCustomFields.filter(f => f.entity === "opportunity");
 
     const { data: allOpportunities = [] } = useQuery<Opportunity[]>({
@@ -68,10 +69,6 @@ export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
         },
     });
 
-    const filledLeadFields = leadFields.filter(
-        f => lead.customFields?.[f.name] != null && lead.customFields[f.name] !== ""
-    );
-
     return (
         <>
             <tr className={rowBg}>
@@ -79,6 +76,11 @@ export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
                 <td className="p-2">{lead.lastName}</td>
                 <td className="p-2">{lead.age}</td>
                 <td className="p-2">{lead.phoneNumber}</td>
+                {leadFields.map(f => (
+                    <td key={f.name} className="p-2 text-sm">
+                        {lead.customFields?.[f.name] ?? ""}
+                    </td>
+                ))}
                 <td className="p-2 text-right whitespace-nowrap">
                     <Button variant="ghost" size="sm" onClick={() => setShowOpps(v => !v)} className="mr-1">
                         {showOpps ? "Hide" : "Show"} Opps
@@ -87,23 +89,10 @@ export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
                 </td>
             </tr>
 
-            {filledLeadFields.length > 0 && (
-                <tr className={rowBg}>
-                    <td colSpan={4} className="px-2 pb-2 text-sm text-gray-500">
-                        {filledLeadFields.map(f => (
-                            <span key={f.name} className="mr-4">
-                                <span className="font-medium">{f.label}:</span> {lead.customFields![f.name]}
-                            </span>
-                        ))}
-                    </td>
-                    <td />
-                </tr>
-            )}
-
             {showOpps && (
                 <tr>
-                    <td colSpan={5} className="p-4 bg-white border-t">
-                        <div className="space-y-3">
+                    <td colSpan={5 + leadFields.length} className="p-6 bg-white">
+                        <div className="space-y-3 border p-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="font-bold">Opportunities</h3>
                                 <Button size="sm" onClick={() => setShowAddOppDialog(true)}>+ Add Opportunity</Button>
@@ -117,7 +106,7 @@ export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
                                             key={opp.id}
                                             opp={opp}
                                             onEdit={() => setEditingOpp(opp)}
-                                            onDelete={() => deleteOppMutation.mutate(opp.id)}
+                                            onDelete={() => setConfirmDeleteOpp(opp)}
                                             isDeleting={deleteOppMutation.isPending}
                                         />
                                     ))}
@@ -196,6 +185,17 @@ export function LeadRow({ lead, shade }: { lead: Lead; shade?: boolean }) {
                     />
                 )}
             </Dialog>
+            <ConfirmDialog
+                open={confirmDeleteOpp !== null}
+                title="Delete Opportunity"
+                message={`Delete "${confirmDeleteOpp?.name || "this opportunity"}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                onConfirm={() => {
+                    if (confirmDeleteOpp) deleteOppMutation.mutate(confirmDeleteOpp.id);
+                    setConfirmDeleteOpp(null);
+                }}
+                onCancel={() => setConfirmDeleteOpp(null)}
+            />
         </>
     );
 }

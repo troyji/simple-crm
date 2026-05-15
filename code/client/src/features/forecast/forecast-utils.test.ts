@@ -2,11 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
     parseLocalDate,
     formatCurrency,
+    calcTotalValue,
     calcExpectedValue,
+    resolveLikelihood,
     getBucketLabel,
     groupOpps,
     sortOpps,
 } from "./forecast.utils";
+import type { LikelihoodSettings } from "./forecast.utils";
 import type { Opportunity, Stage } from "@/types";
 
 function makeStage(overrides: Partial<Stage> = {}): Stage {
@@ -59,23 +62,90 @@ describe("formatCurrency", () => {
     });
 });
 
-describe("calcExpectedValue", () => {
-    it("returns 0 for an empty array", () => {
-        expect(calcExpectedValue([])).toBe(0);
+const defaultSettings: LikelihoodSettings = { wonLikelihood: 1, lostLikelihood: 0 };
+
+describe("resolveLikelihood", () => {
+    it("uses wonLikelihood from settings for won stages", () => {
+        const opp = makeOpp({ stage: makeStage({ status: "won", conversionLikelihood: 0.3 }) });
+        expect(resolveLikelihood(opp, { wonLikelihood: 0.9, lostLikelihood: 0 })).toBe(0.9);
     });
 
-    it("sums value × conversionLikelihood across all opportunities", () => {
+    it("uses lostLikelihood from settings for lost stages", () => {
+        const opp = makeOpp({ stage: makeStage({ status: "lost", conversionLikelihood: 0.8 }) });
+        expect(resolveLikelihood(opp, { wonLikelihood: 1, lostLikelihood: 0.1 })).toBe(0.1);
+    });
+
+    it("uses stage conversionLikelihood for pending stages, ignoring settings", () => {
+        const opp = makeOpp({ stage: makeStage({ status: "pending", conversionLikelihood: 0.65 }) });
+        expect(resolveLikelihood(opp, { wonLikelihood: 0.5, lostLikelihood: 0.5 })).toBe(0.65);
+    });
+
+    it("returns 1 for a won stage when wonLikelihood is 1", () => {
+        const opp = makeOpp({ stage: makeStage({ status: "won" }) });
+        expect(resolveLikelihood(opp, defaultSettings)).toBe(1);
+    });
+
+    it("returns 0 for a lost stage when lostLikelihood is 0", () => {
+        const opp = makeOpp({ stage: makeStage({ status: "lost" }) });
+        expect(resolveLikelihood(opp, defaultSettings)).toBe(0);
+    });
+});
+
+describe("calcTotalValue", () => {
+    it("returns 0 for an empty array", () => {
+        expect(calcTotalValue([])).toBe(0);
+    });
+
+    it("sums raw values without applying any likelihood", () => {
+        const opps = [
+            makeOpp({ value: 1000, stage: makeStage({ conversionLikelihood: 0.1 }) }),
+            makeOpp({ id: 2, value: 2000, stage: makeStage({ conversionLikelihood: 0.5 }) }),
+        ];
+        expect(calcTotalValue(opps)).toBe(3000);
+    });
+
+    it("handles a single opportunity", () => {
+        expect(calcTotalValue([makeOpp({ value: 750 })])).toBe(750);
+    });
+});
+
+describe("calcExpectedValue", () => {
+    it("returns 0 for an empty array", () => {
+        expect(calcExpectedValue([], defaultSettings)).toBe(0);
+    });
+
+    it("applies conversionLikelihood for pending stages", () => {
         const opps = [
             makeOpp({ value: 1000, stage: makeStage({ conversionLikelihood: 0.5 }) }),
             makeOpp({ id: 2, value: 2000, stage: makeStage({ conversionLikelihood: 0.25 }) }),
         ];
         // 500 + 500 = 1000
-        expect(calcExpectedValue(opps)).toBe(1000);
+        expect(calcExpectedValue(opps, defaultSettings)).toBe(1000);
+    });
+
+    it("applies wonLikelihood from settings for won stages, not conversionLikelihood", () => {
+        const opp = makeOpp({ value: 5000, stage: makeStage({ status: "won", conversionLikelihood: 0.3 }) });
+        expect(calcExpectedValue([opp], { wonLikelihood: 1, lostLikelihood: 0 })).toBe(5000);
+    });
+
+    it("applies lostLikelihood from settings for lost stages, not conversionLikelihood", () => {
+        const opp = makeOpp({ value: 5000, stage: makeStage({ status: "lost", conversionLikelihood: 0.9 }) });
+        expect(calcExpectedValue([opp], { wonLikelihood: 1, lostLikelihood: 0 })).toBe(0);
+    });
+
+    it("mixes pending, won, and lost stages correctly", () => {
+        const opps = [
+            makeOpp({ id: 1, value: 1000, stage: makeStage({ status: "pending", conversionLikelihood: 0.5 }) }),
+            makeOpp({ id: 2, value: 2000, stage: makeStage({ status: "won", conversionLikelihood: 0.1 }) }),
+            makeOpp({ id: 3, value: 3000, stage: makeStage({ status: "lost", conversionLikelihood: 0.9 }) }),
+        ];
+        // pending: 500, won: 2000×1=2000, lost: 3000×0=0 → 2500
+        expect(calcExpectedValue(opps, defaultSettings)).toBe(2500);
     });
 
     it("handles a single opportunity", () => {
         const opps = [makeOpp({ value: 500, stage: makeStage({ conversionLikelihood: 0.8 }) })];
-        expect(calcExpectedValue(opps)).toBe(400);
+        expect(calcExpectedValue(opps, defaultSettings)).toBe(400);
     });
 });
 

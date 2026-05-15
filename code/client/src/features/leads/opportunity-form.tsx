@@ -70,14 +70,14 @@ export function OpportunityForm({ submitLabel, initialValues, onSubmit, isPendin
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div>
                 <Label>Stage</Label>
-                <Select value={stageId} onChange={e => setStageId(e.target.value)}>
+                <Select value={stageId} onChange={e => setStageId(e.target.value)} required>
                     <option value="">Select stage…</option>
                     {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
             </div>
             <div>
                 <Label>Value</Label>
-                <Input type="number" value={value} onChange={e => setValue(e.target.value)} />
+                <Input type="number" value={value} onChange={e => setValue(e.target.value)} required min="1" />
             </div>
             <div>
                 <Label>Name (optional)</Label>

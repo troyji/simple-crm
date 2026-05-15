@@ -28,6 +28,11 @@ export function StageFilter({ stages, pendingFilter, filterOpen, onOpen, onClose
     }, [filterOpen, onClose]);
 
     const sorted = [...stages].sort((a, b) => a.order - b.order);
+    const groups: { status: "pending" | "won" | "lost"; label: string }[] = [
+        { status: "pending", label: "Pending" },
+        { status: "won", label: "Won" },
+        { status: "lost", label: "Lost" },
+    ];
 
     return (
         <div className="relative" ref={containerRef}>
@@ -36,16 +41,27 @@ export function StageFilter({ stages, pendingFilter, filterOpen, onOpen, onClose
             </Button>
             {filterOpen && (
                 <div className="absolute top-full right-0 mt-1 z-20 bg-white border rounded shadow-lg p-3 min-w-[200px]">
-                    <div className="space-y-2 mb-3">
-                        {sorted.map(stage => (
-                            <Checkbox
-                                key={stage.id}
-                                id={`stage-${stage.id}`}
-                                label={stage.name}
-                                checked={pendingFilter.has(stage.id)}
-                                onChange={() => onTogglePending(stage.id)}
-                            />
-                        ))}
+                    <div className="space-y-3 mb-3">
+                        {groups.map(({ status, label }) => {
+                            const group = sorted.filter(s => s.status === status);
+                            if (group.length === 0) return null;
+                            return (
+                                <div key={status}>
+                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+                                    <div className="space-y-1">
+                                        {group.map(stage => (
+                                            <Checkbox
+                                                key={stage.id}
+                                                id={`stage-${stage.id}`}
+                                                label={stage.name}
+                                                checked={pendingFilter.has(stage.id)}
+                                                onChange={() => onTogglePending(stage.id)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                     <Button variant="default" size="sm" className="w-full" onClick={onApply}>
                         Apply
