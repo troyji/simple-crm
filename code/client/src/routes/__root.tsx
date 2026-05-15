@@ -18,6 +18,9 @@ export const Route = createRootRoute({
                     <Link to="/pipeline" activeProps={{ className: active }} inactiveProps={{ className: inactive }}>
                         Pipeline
                     </Link>
+                    <Link to="/forecast" activeProps={{ className: active }} inactiveProps={{ className: inactive }}>
+                        Forecast
+                    </Link>
                     <Link to="/settings" activeProps={{ className: active }} inactiveProps={{ className: inactive }}>
                         Settings
                     </Link>

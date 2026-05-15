@@ -79,6 +79,38 @@ export async function seedDatabase({ clearFirst = false }: { clearFirst?: boolea
 
     console.log(`✓ Created ${leads.length} leads`);
 
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const dateInMonth = (monthOffset: number, day: number): string => {
+        const first = new Date(y, m + monthOffset, 1);
+        const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+        const d = Math.min(day, lastDay);
+        return `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    };
+    const closeDates: (string | null)[] = [
+        dateInMonth(-4, 15),  // older than prev month
+        dateInMonth(-2, 8),   // older than prev month
+        dateInMonth(-1, 8),   // previous month
+        dateInMonth(-1, 22),  // previous month
+        dateInMonth(0, 10),   // current month
+        dateInMonth(0, 25),   // current month
+        dateInMonth(1, 11),   // month +1
+        dateInMonth(1, 25),   // month +1
+        dateInMonth(2, 9),    // month +2
+        dateInMonth(2, 23),   // month +2
+        dateInMonth(3, 6),    // month +3
+        dateInMonth(3, 20),   // month +3
+        dateInMonth(4, 3),    // month +4
+        dateInMonth(4, 17),   // month +4
+        dateInMonth(5, 1),    // month +5
+        dateInMonth(5, 15),   // month +5
+        dateInMonth(7, 12),   // beyond 6 months
+        dateInMonth(9, 28),   // beyond 6 months
+        null,                 // no date
+        null,                 // no date
+    ];
+
     let oppCount = 0;
     for (const lead of leads) {
         const numOpps = Math.floor(Math.random() * 3) + 1;
@@ -88,6 +120,7 @@ export async function seedDatabase({ clearFirst = false }: { clearFirst?: boolea
             opp.stage = stages[Math.floor(Math.random() * stages.length)];
             opp.value = Math.floor(Math.random() * 95000) + 5000;
             opp.name = dealNames[Math.floor(Math.random() * dealNames.length)];
+            opp.expectedCloseDate = closeDates[oppCount % closeDates.length];
             const region = regionValues[Math.floor(Math.random() * regionValues.length)];
             const rawHeadcount = Math.floor(Math.random() * 500) + 10;
             opp.customFields = {
