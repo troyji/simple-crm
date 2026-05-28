@@ -23,7 +23,7 @@ export function Button({ className, variant = "default", size = "default", ...pr
     return (
         <button
             className={cn(
-                "inline-flex items-center justify-center rounded font-medium transition",
+                "inline-flex items-center justify-center rounded font-medium transition cursor-pointer",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 variants[variant],
                 sizes[size],

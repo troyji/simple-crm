@@ -1,19 +1,29 @@
 import { type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+type DialogSize = "sm" | "md" | "lg" | "xl";
+
+const SIZE_CLASSES: Record<DialogSize, string> = {
+    sm: "max-w-md",
+    md: "max-w-lg",
+    lg: "max-w-2xl",
+    xl: "max-w-4xl",
+};
+
 interface Props {
     open: boolean;
     onClose: () => void;
     title: string;
     children: ReactNode;
+    size?: DialogSize;
 }
 
-export function Dialog({ open, onClose, title, children }: Props) {
+export function Dialog({ open, onClose, title, children, size = "sm" }: Props) {
     if (!open) return null;
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
+            <div className={`relative bg-white rounded-lg shadow-xl w-full ${SIZE_CLASSES[size]} mx-4 max-h-[90vh] flex flex-col`}>
                 <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
                     <h2 className="text-lg font-semibold">{title}</h2>
                     <button

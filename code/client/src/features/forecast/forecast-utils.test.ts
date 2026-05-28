@@ -23,6 +23,7 @@ function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
         stage: makeStage(),
         value: 1000,
         expectedCloseDate: null,
+        position: 1,
         ...overrides,
     };
 }

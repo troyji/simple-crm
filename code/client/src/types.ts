@@ -31,6 +31,7 @@ export interface Opportunity {
     name?: string;
     expectedCloseDate?: string | null;
     customFields?: Record<string, string | number>;
+    position: number;
 }
 
 export interface AppSetting {

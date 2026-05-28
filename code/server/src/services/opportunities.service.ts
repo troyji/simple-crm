@@ -1,3 +1,4 @@
+import { IsNull } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Opportunity } from "../entity/Opportunity";
 import { Lead } from "../entity/Lead";
@@ -31,6 +32,14 @@ class OpportunitiesService {
         return this.repo.find();
     }
 
+    async nextPositionForStage(stageId: number): Promise<number> {
+        const last = await this.repo.findOne({
+            where: { stage: { id: stageId } },
+            order: { position: "DESC" },
+        });
+        return (last?.position ?? 0) + 1;
+    }
+
     async create(input: CreateOpportunityInput): Promise<Opportunity> {
         const settings = await settingsService.getOpportunitySettings();
         if (input.value < settings.minValue) {
@@ -50,6 +59,7 @@ class OpportunitiesService {
             name: input.name,
             expectedCloseDate: input.expectedCloseDate ?? null,
             customFields: input.customFields ?? {},
+            position: await this.nextPositionForStage(stage.id),
         });
         return this.repo.save(opp);
     }
@@ -59,10 +69,11 @@ class OpportunitiesService {
         const opp = await this.repo.findOne({ where: { id } });
         if (!opp) return null;
 
-        if (input.stageId !== undefined) {
+        if (input.stageId !== undefined && input.stageId !== opp.stage.id) {
             const newStage = await this.stageRepo.findOne({ where: { id: input.stageId } });
             if (!newStage) throw new NotFoundError("Stage not found");
             opp.stage = newStage;
+            opp.position = await this.nextPositionForStage(newStage.id);
         }
         if (input.value !== undefined) {
             if (input.value < settings.minValue) {
@@ -83,3 +94,30 @@ class OpportunitiesService {
 }
 
 export const opportunitiesService = new OpportunitiesService();
+
+export async function backfillOpportunityPositions(): Promise<void> {
+    const repo = AppDataSource.getRepository(Opportunity);
+    const missing = await repo.find({ where: { position: IsNull() }, order: { id: "ASC" } });
+    if (missing.length === 0) return;
+
+    // Seed each stage's counter from any existing max position so we always append.
+    const counters = new Map<number, number>();
+    for (const opp of missing) {
+        const stageId = opp.stage.id;
+        if (counters.has(stageId)) continue;
+        const top = await repo.findOne({
+            where: { stage: { id: stageId } },
+            order: { position: "DESC" },
+        });
+        counters.set(stageId, top?.position ?? 0);
+    }
+
+    for (const opp of missing) {
+        const stageId = opp.stage.id;
+        const next = (counters.get(stageId) ?? 0) + 1;
+        counters.set(stageId, next);
+        opp.position = next;
+    }
+    await repo.save(missing);
+    console.log(`Backfilled position for ${missing.length} opportunit${missing.length === 1 ? "y" : "ies"}.`);
+}

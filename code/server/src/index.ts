@@ -1,9 +1,11 @@
 import { AppDataSource } from "./data-source";
 import { seedDatabase } from "./seed";
 import { createApp } from "./app";
+import { backfillOpportunityPositions } from "./services/opportunities.service";
 
 const run = async () => {
     await AppDataSource.initialize();
+    await backfillOpportunityPositions();
     await seedDatabase();
     const app = createApp();
     app.listen(3000, () => {
