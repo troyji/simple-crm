@@ -1,22 +1,21 @@
-export const POSITION_EPSILON = 1e-6;
+// Lexicographic fractional indexing, backed by the `fractional-indexing` library.
+//
+// Positions are base-62 strings compared lexicographically. Between any two distinct
+// positions there is always another, so reordering only rewrites the moved row —
+// neighbours never need to be renormalised. The base-62 alphabet is in ascending ASCII
+// order, so SQLite's default BINARY collation sorts these the same way the library does.
+
+export { generateKeyBetween as keyBetween } from "fractional-indexing";
+
+import { generateKeyBetween } from "fractional-indexing";
 
 export interface PositionedItem {
-    position: number;
+    position: string;
 }
 
-export function computeInsertPosition(others: PositionedItem[], toIndex: number): number {
-    if (others.length === 0) return 1;
-    if (toIndex <= 0) return others[0].position - 1;
-    if (toIndex >= others.length) return others[others.length - 1].position + 1;
-    const prev = others[toIndex - 1].position;
-    const next = others[toIndex].position;
-    return (prev + next) / 2;
-}
-
-export function needsRenormalization(others: PositionedItem[], toIndex: number): boolean {
-    if (others.length < 2) return false;
-    if (toIndex <= 0 || toIndex >= others.length) return false;
-    const prev = others[toIndex - 1].position;
-    const next = others[toIndex].position;
-    return Math.abs(next - prev) < POSITION_EPSILON;
+export function computeInsertPosition(others: PositionedItem[], toIndex: number): string {
+    if (others.length === 0) return generateKeyBetween(null, null);
+    if (toIndex <= 0) return generateKeyBetween(null, others[0].position);
+    if (toIndex >= others.length) return generateKeyBetween(others[others.length - 1].position, null);
+    return generateKeyBetween(others[toIndex - 1].position, others[toIndex].position);
 }

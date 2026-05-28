@@ -25,6 +25,6 @@ export class Opportunity {
     @Column("simple-json", { nullable: true })
     customFields: Record<string, string | number> = {};
 
-    @Column("real", { nullable: true })
-    position: number | null = null;
+    @Column("text", { nullable: true })
+    position: string | null = null;
 }

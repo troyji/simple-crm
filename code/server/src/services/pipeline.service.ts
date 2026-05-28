@@ -4,7 +4,7 @@ import { Opportunity } from "../entity/Opportunity";
 import { settingsService } from "./settings.service";
 import { computeExpectedValue } from "./expected-value";
 import { NotFoundError, ValidationError } from "../errors";
-import { computeInsertPosition, needsRenormalization } from "./pipeline-position";
+import { computeInsertPosition } from "./pipeline-position";
 
 export interface MoveOpportunityInput {
     opportunityId: number;
@@ -52,26 +52,19 @@ class PipelineService {
         const toStage = await this.stageRepo.findOne({ where: { id: input.toStageId } });
         if (!toStage) throw new NotFoundError("Stage not found");
 
-        let others = await this.oppRepo
+        const others = await this.oppRepo
             .createQueryBuilder("opp")
             .where("opp.stageId = :stageId", { stageId: toStage.id })
             .andWhere("opp.id <> :id", { id: opp.id })
             .orderBy("opp.position", "ASC")
             .getMany();
-        // Treat any nulls defensively as 0 — backfill should have populated everything.
-        const othersForCompute = others.map(o => ({ position: o.position ?? 0 }));
+        // Backfill should have populated everything; skip any stragglers defensively.
+        const othersForCompute = others
+            .filter((o): o is Opportunity & { position: string } => o.position !== null)
+            .map(o => ({ position: o.position }));
 
-        if (needsRenormalization(othersForCompute, input.toIndex)) {
-            for (let i = 0; i < others.length; i++) {
-                others[i].position = i + 1;
-            }
-            await this.oppRepo.save(others);
-            othersForCompute.forEach((o, i) => (o.position = i + 1));
-        }
-
-        const newPosition = computeInsertPosition(othersForCompute, input.toIndex);
         opp.stage = toStage;
-        opp.position = newPosition;
+        opp.position = computeInsertPosition(othersForCompute, input.toIndex);
         return this.oppRepo.save(opp);
     }
 }

@@ -14,6 +14,7 @@ import {
     type DragStartEvent,
 } from "@dnd-kit/core";
 import { toast } from "sonner";
+import { generateNKeysBetween } from "fractional-indexing";
 import type { Opportunity, PipelineReport, Stage } from "@/types";
 import { fetchStages } from "@/api/stages";
 import { fetchOpportunities } from "@/api/opportunities";
@@ -26,6 +27,10 @@ import { TilePresentation } from "./opportunity-tile";
 const COLUMN_WIDTH_PX = 288; // w-72
 const COLUMN_GAP_PX = 16;    // gap-4
 const SCROLL_STEP_PX = COLUMN_WIDTH_PX + COLUMN_GAP_PX;
+
+function byPosition<T extends { position: string }>(a: T, b: T): number {
+    return a.position < b.position ? -1 : a.position > b.position ? 1 : 0;
+}
 
 // Check tile droppables before column droppables so that hovering inside a tile resolves
 // to that tile (not the column it sits inside). Empty columns fall through to the column
@@ -65,7 +70,7 @@ function resolveDropTarget(
 
     const destFull = opportunities
         .filter(o => o.stage.id === toStageId)
-        .sort((a, b) => a.position - b.position);
+        .sort(byPosition);
     const destOthersCount = destFull.filter(o => o.id !== activeId).length;
 
     let toIndex: number;
@@ -94,12 +99,15 @@ function applyMoveToCache(
     );
     const others = withStage
         .filter(o => o.stage.id === toStageId && o.id !== activeOppId)
-        .sort((a, b) => a.position - b.position);
+        .sort(byPosition);
     const moved = withStage.find(o => o.id === activeOppId);
     if (!moved) return withStage;
     const reordered = [...others];
     reordered.splice(Math.min(toIndex, reordered.length), 0, moved);
-    const positionMap = new Map(reordered.map((o, i) => [o.id, i + 1]));
+    // Optimistic-only positions: generate ordered fractional-index keys for the new
+    // arrangement. The server response (with canonical keys) replaces these on success.
+    const keys = generateNKeysBetween(null, null, reordered.length);
+    const positionMap = new Map(reordered.map((o, i) => [o.id, keys[i]]));
     return withStage.map(o => positionMap.has(o.id) ? { ...o, position: positionMap.get(o.id)! } : o);
 }
 
@@ -133,7 +141,7 @@ export function PipelineBoard() {
             if (bucket) bucket.push(opp);
         }
         for (const list of map.values()) {
-            list.sort((a, b) => a.position - b.position);
+            list.sort(byPosition);
         }
         return map;
     }, [stages, opportunities]);
@@ -252,7 +260,7 @@ export function PipelineBoard() {
             if (original && original.stage.id === target.toStageId) {
                 const origDest = snapshot
                     .filter(o => o.stage.id === target.toStageId)
-                    .sort((a, b) => a.position - b.position);
+                    .sort(byPosition);
                 const origIdx = origDest.findIndex(o => o.id === activeOppId);
                 if (origIdx === target.toIndex) return;
             }

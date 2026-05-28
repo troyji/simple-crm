@@ -5,6 +5,7 @@ import { Lead } from "../entity/Lead";
 import { Stage } from "../entity/Stage";
 import { settingsService } from "./settings.service";
 import { NotFoundError, ValidationError } from "../errors";
+import { keyBetween } from "./pipeline-position";
 
 export interface CreateOpportunityInput {
     leadId: number;
@@ -32,12 +33,12 @@ class OpportunitiesService {
         return this.repo.find();
     }
 
-    async nextPositionForStage(stageId: number): Promise<number> {
+    async nextPositionForStage(stageId: number): Promise<string> {
         const last = await this.repo.findOne({
             where: { stage: { id: stageId } },
             order: { position: "DESC" },
         });
-        return (last?.position ?? 0) + 1;
+        return keyBetween(last?.position ?? null, null);
     }
 
     async create(input: CreateOpportunityInput): Promise<Opportunity> {
@@ -100,22 +101,22 @@ export async function backfillOpportunityPositions(): Promise<void> {
     const missing = await repo.find({ where: { position: IsNull() }, order: { id: "ASC" } });
     if (missing.length === 0) return;
 
-    // Seed each stage's counter from any existing max position so we always append.
-    const counters = new Map<number, number>();
+    // Seed each stage's cursor from any existing max position so we always append.
+    const lastByStage = new Map<number, string | null>();
     for (const opp of missing) {
         const stageId = opp.stage.id;
-        if (counters.has(stageId)) continue;
+        if (lastByStage.has(stageId)) continue;
         const top = await repo.findOne({
             where: { stage: { id: stageId } },
             order: { position: "DESC" },
         });
-        counters.set(stageId, top?.position ?? 0);
+        lastByStage.set(stageId, top?.position ?? null);
     }
 
     for (const opp of missing) {
         const stageId = opp.stage.id;
-        const next = (counters.get(stageId) ?? 0) + 1;
-        counters.set(stageId, next);
+        const next = keyBetween(lastByStage.get(stageId) ?? null, null);
+        lastByStage.set(stageId, next);
         opp.position = next;
     }
     await repo.save(missing);

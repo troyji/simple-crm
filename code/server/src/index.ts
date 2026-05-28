@@ -5,8 +5,8 @@ import { backfillOpportunityPositions } from "./services/opportunities.service";
 
 const run = async () => {
     await AppDataSource.initialize();
-    await backfillOpportunityPositions();
     await seedDatabase();
+    await backfillOpportunityPositions();
     const app = createApp();
     app.listen(3000, () => {
         console.log("Server is running on http://localhost:3000");
